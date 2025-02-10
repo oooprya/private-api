@@ -1,11 +1,20 @@
 from tastypie.resources import ModelResource
 from tastypie import fields
-from currency.models import Exchanger, CartItem
+from currency.models import Exchanger, CartItem, Currency
 from tastypie.authorization import Authorization
 from .authentication import CustomAuthentication
 from tastypie.serializers import Serializer
 from django.db.models import Prefetch
 
+
+
+class CurrencyResource(ModelResource):
+    class Meta:
+        queryset = Currency.objects.all()
+        resource_name = 'currencys'
+        allowed_methods = ['get', 'put', 'post', 'patch','delete']
+        authentication = CustomAuthentication()
+        authorization = Authorization()
 
 
 class CartItemResource(ModelResource):
