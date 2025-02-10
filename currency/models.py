@@ -5,7 +5,7 @@ from django.utils import timezone
 
 
 class Currency(models.Model):
-    name = models.CharField('Валюта', max_length=20, default='usd', unique = True)
+    name = models.CharField('Валюта', max_length=40, default='usd', unique = True)
 
     def __str__(self):
         return f'{self.name}'
