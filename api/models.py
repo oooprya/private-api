@@ -21,6 +21,14 @@ class CartItemResource(ModelResource):
     class Meta:
         queryset = CartItem.objects.all().select_related('exchanger', 'currency').prefetch_related('exchanger', 'currency').order_by('id')
         resource_name = 'currencys'
+        filtering = {
+            'currency': ['exact', 'icontains'],
+            'sum': ['exact', 'icontains'],
+        }
+        search = {
+            'currency': ['icontains'],
+            'sum': ['exact', 'icontains'],
+        }
         allowed_methods = ['get', 'put', 'post', 'patch','delete']
         authentication = CustomAuthentication()
         authorization = Authorization()
