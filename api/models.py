@@ -22,11 +22,11 @@ class CartItemResource(ModelResource):
         queryset = CartItem.objects.all().select_related('exchanger', 'currency').prefetch_related('exchanger', 'currency').order_by('id')
         resource_name = 'currencys'
         filtering = {
-            'currency': ['exact', 'icontains'],
+            'currency_id': ['exact', 'icontains'],
             'sum': ['exact', 'icontains'],
         }
         search = {
-            'currency': ['icontains'],
+            'currency_id': ['icontains'],
             'sum': ['exact', 'icontains'],
         }
         allowed_methods = ['get', 'put', 'post', 'patch','delete']
