@@ -66,7 +66,7 @@ class CartItemResource(ModelResource):
         filtering = {
             'exchanger': ALL,
             'currency': ALL_WITH_RELATIONS,
-            'min_sum': ['exact', 'gt', 'lt', 'gte', 'lte'],
+            'sum': ['exact', 'gt', 'lt', 'gte', 'lte'],
         }
         allowed_methods = ['get']
         authentication = CustomAuthentication()
