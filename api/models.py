@@ -20,10 +20,12 @@ class CartItemResource(ModelResource):
         resource_name = 'currencys'
         filtering = {
             'currency_id': ['exact', 'icontains'],
+            'currency': ['exact', 'icontains'],
             'sum': ['exact', 'icontains'],
         }
         search = {
             'currency_id': ['icontains'],
+            'currency': ['icontains'],
             'sum': ['exact', 'icontains'],
         }
         allowed_methods = ['get', 'put', 'post', 'patch','delete']
