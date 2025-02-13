@@ -2,7 +2,6 @@ from tastypie.resources import ModelResource
 from currency.models import Exchanger, CartItem, Currency
 from tastypie.authorization import Authorization
 from .authentication import CustomAuthentication
-from django.db.models import Prefetch
 
 
 
