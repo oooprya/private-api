@@ -18,8 +18,6 @@ class Currency(models.Model):
 class Exchanger(models.Model):
     address = models.CharField(max_length=80)
     address_map = models.CharField(max_length=60, blank=True)
-    exchanger_info = models.CharField(max_length=255, blank=True)
-    telephone = models.CharField(max_length = 16, help_text='+38096-123-45-67', blank=True)
     working_hours = models.CharField(max_length=255, blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     updatedAt = models.DateTimeField(auto_now=True)
