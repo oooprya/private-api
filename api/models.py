@@ -1,9 +1,7 @@
 from tastypie.resources import ModelResource
-from tastypie import fields
 from currency.models import Exchanger, CartItem, Currency
 from tastypie.authorization import Authorization
 from .authentication import CustomAuthentication
-from tastypie.serializers import Serializer
 from django.db.models import Prefetch
 
 
