@@ -46,3 +46,25 @@ class CartItem(models.Model):
 
     def __str__(self) -> str:
         return f' Обменик: {self.exchanger.address} '
+
+class Orders(models.Model):
+
+    STATUS_CHOICES = (
+    ('accepted', 'Принятый'),
+    ('completed', 'Выполнен'),
+    ('new', 'Новый'),
+    ('cancel', 'Сancel'),
+    )
+
+    status = models.CharField(choices=STATUS_CHOICES, max_length=10, default='new')
+    сlients_telephone = models.CharField(max_length = 16, help_text='+38096-123-45-67')
+    address_exchanger = models.CharField('Адрес Брони', max_length=100, blank=True)
+    currency_name = models.CharField('Валюта', max_length=40, blank=True)
+    buy_or_sell = models.CharField(max_length=8, blank=True)
+    exchange_rate = models.DecimalField("Курс", decimal_places=2, max_digits=10, blank=True)
+    order_sum = models.IntegerField("Сумма заказа")
+
+
+    class Meta:
+        verbose_name = "Заказ"
+        verbose_name_plural = "Заказы"
