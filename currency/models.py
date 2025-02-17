@@ -61,8 +61,8 @@ class Orders(models.Model):
     address_exchanger = models.CharField('Адрес Брони', max_length=100, blank=True)
     currency_name = models.CharField('Валюта', max_length=40, blank=True)
     buy_or_sell = models.CharField(max_length=8, blank=True)
-    exchange_rate = models.DecimalField("Курс", decimal_places=2, max_digits=10, blank=True)
-    order_sum = models.IntegerField("Сумма заказа")
+    exchange_rate = models.DecimalField("Курс", decimal_places=2, max_digits=10, )
+    order_sum = models.IntegerField("Сумма заказа", default=100)
 
 
     class Meta:

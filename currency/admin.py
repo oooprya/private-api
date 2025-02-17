@@ -1,8 +1,12 @@
 from django.contrib import admin
-from .models import Exchanger, Currency, CartItem
+from .models import Exchanger, Currency, CartItem, Orders
 
 class CurrencyInline(admin.TabularInline):
     model = CartItem
+    extra = 1
+
+class ExchangerInline(admin.TabularInline):
+    model = Exchanger
     extra = 1
 
 class CartItemAdmin(admin.ModelAdmin):
@@ -15,9 +19,14 @@ class ExchangerAdmin(admin.ModelAdmin):
     list_display = ["id","address"]
     list_display_links = ["address"]
 
+class OrdersAdmin(admin.ModelAdmin):
+    list_display = ("id", 'currency_name', 'buy_or_sell', 'order_sum','exchange_rate', "status", "сlients_telephone", "address_exchanger")
+    list_editable = ['status']
+
 
 admin.site.register(CartItem, CartItemAdmin)
 admin.site.register(Currency)
+admin.site.register(Orders, OrdersAdmin)
 admin.site.register(Exchanger, ExchangerAdmin)
 
 # Register your models here.

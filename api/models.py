@@ -1,5 +1,5 @@
 from tastypie.resources import ModelResource, ALL, ALL_WITH_RELATIONS
-from currency.models import Exchanger, CartItem, Currency
+from currency.models import Exchanger, CartItem, Currency, Orders
 from tastypie import fields
 from tastypie.authorization import Authorization
 from .authentication import CustomAuthentication
@@ -53,7 +53,14 @@ class ExchangerResource(ModelResource):
     #     bundle.data['currency'] =  {str(curr.currency):{"buy": curr.buy, "sell": curr.sell, "sum": curr.sum} for curr in data_curr if bundle.obj.id == curr.exchanger.id}
     #     return bundle
 
+class OrdersResource(ModelResource):
 
+    class Meta:
+        queryset = Orders.objects.all()
+        resource_name = 'orders'
+        allowed_methods = ['get', 'patch', 'post']
+        authentication = CustomAuthentication()
+        authorization = Authorization()
 
 class CartItemResource(ModelResource):
     exchanger = fields.ForeignKey(ExchangerResource, 'exchanger')
