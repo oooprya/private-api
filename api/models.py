@@ -5,7 +5,6 @@ from tastypie.authorization import Authorization
 from .authentication import CustomAuthentication
 
 
-
 class CurrencyResource(ModelResource):
     class Meta:
         queryset = Currency.objects.all()
@@ -24,7 +23,7 @@ class ExchangerResource(ModelResource):
     class Meta:
         queryset = Exchanger.objects.all()
         resource_name = 'exchangers'
-        allowed_methods = ['get', 'patch', 'post','delete']
+        allowed_methods = ['get', 'patch', 'post', 'delete']
         authentication = CustomAuthentication()
         authorization = Authorization()
 
@@ -35,15 +34,16 @@ class ExchangerResource(ModelResource):
     #     return bundle
 
 
-    def hydrate(self, bundle):
-        bundle.obj.id = bundle.data['id']
-        bundle.obj.address = bundle.data['address']
-        return bundle
 
-    def get_data_curr(self, bundle):
-        data_curr = CartItem.objects.all().prefetch_related('exchanger', 'currency')
-        bundle.data = {str(curr.currency):{"buy": curr.buy, "sell": curr.sell, "sum": curr.sum} for curr in data_curr if bundle.obj.id == curr.exchanger.id}
-        return bundle
+    # def hydrate(self, bundle):
+    #     bundle.obj.id = bundle.data['id']
+    #     bundle.obj.address = bundle.data['address']
+    #     return bundle
+
+    # def get_data_curr(self, bundle):
+    #     data_curr = CartItem.objects.all().prefetch_related('exchanger', 'currency')
+    #     bundle.data = {str(curr.currency):{"buy": curr.buy, "sell": curr.sell, "sum": curr.sum} for curr in data_curr if bundle.obj.id == curr.exchanger.id}
+    #     return bundle
 
 
 
@@ -51,6 +51,7 @@ class ExchangerResource(ModelResource):
     #     data_curr = CartItem.objects.all().select_related('exchanger', 'currency').prefetch_related('exchanger', 'currency').order_by('id')
     #     bundle.data['currency'] =  {str(curr.currency):{"buy": curr.buy, "sell": curr.sell, "sum": curr.sum} for curr in data_curr if bundle.obj.id == curr.exchanger.id}
     #     return bundle
+
 
 class OrdersResource(ModelResource):
 
@@ -65,11 +66,14 @@ class OrdersResource(ModelResource):
         authentication = CustomAuthentication()
         authorization = Authorization()
 
+
 class CartItemResource(ModelResource):
     exchanger = fields.ForeignKey(ExchangerResource, 'exchanger')
     currency = fields.ForeignKey(CurrencyResource, 'currency')
+
     class Meta:
-        queryset = CartItem.objects.all().select_related('exchanger', 'currency').prefetch_related('exchanger', 'currency').order_by('id')
+        queryset = CartItem.objects.all().select_related(
+            'exchanger', 'currency').prefetch_related('exchanger', 'currency').order_by('id')
         # queryset = CartItem.objects.all()
         resource_name = 'currencys'
         ordering = ['currency']
