@@ -68,7 +68,7 @@ class OrdersResource(ModelResource):
 
 
 class CartItemResource(ModelResource):
-    exchanger = fields.ForeignKey(ExchangerResource, 'exchanger')
+    exchanger = ExchangerResource()
     currency = fields.ForeignKey(CurrencyResource, 'currency')
 
     class Meta:
@@ -87,11 +87,9 @@ class CartItemResource(ModelResource):
         authorization = Authorization()
 
     def hydrate(self, bundle):
-        bundle.obj.exchanger_id = bundle.data['exchanger_id']
         bundle.obj.currency_id = bundle.data['currency_id']
         return bundle
 
     def dehydrate(self, bundle):
-        bundle.data['exchanger_id'] = bundle.obj.exchanger
         bundle.data['currency_id'] = bundle.obj.currency
         return bundle
