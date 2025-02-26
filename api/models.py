@@ -35,16 +35,15 @@ class ExchangerResource(ModelResource):
     #     return bundle
 
 
+    def hydrate(self, bundle):
+        bundle.obj.id = bundle.data['id']
+        bundle.obj.address = bundle.data['address']
+        return bundle
 
-    # def hydrate(self, bundle):
-    #     bundle.obj.id = bundle.data['id']
-    #     bundle.obj.address = bundle.data['address']
-    #     return bundle
-
-    # def get_data_curr(self, bundle):
-    #     data_curr = CartItem.objects.all().prefetch_related('exchanger', 'currency')
-    #     bundle.data = {str(curr.currency):{"buy": curr.buy, "sell": curr.sell, "sum": curr.sum} for curr in data_curr if bundle.obj.id == curr.exchanger.id}
-    #     return bundle
+    def get_data_curr(self, bundle):
+        data_curr = CartItem.objects.all().prefetch_related('exchanger', 'currency')
+        bundle.data = {str(curr.currency):{"buy": curr.buy, "sell": curr.sell, "sum": curr.sum} for curr in data_curr if bundle.obj.id == curr.exchanger.id}
+        return bundle
 
 
 
@@ -58,6 +57,10 @@ class OrdersResource(ModelResource):
     class Meta:
         queryset = Orders.objects.all()
         resource_name = 'orders'
+        ordering = ['status']
+        filtering = {
+            'status': ALL,
+        }
         allowed_methods = ['get', 'patch', 'post']
         authentication = CustomAuthentication()
         authorization = Authorization()
@@ -75,7 +78,7 @@ class CartItemResource(ModelResource):
             'currency': ALL_WITH_RELATIONS,
             'sum': ['exact', 'gt', 'lt', 'gte', 'lte'],
         }
-        allowed_methods = ['get']
+        allowed_methods = ['get', 'patch', 'post']
         authentication = CustomAuthentication()
         authorization = Authorization()
 
