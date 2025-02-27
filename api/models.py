@@ -21,36 +21,12 @@ class CurrencyResource(ModelResource):
 class ExchangerResource(ModelResource):
 
     class Meta:
-        queryset = Exchanger.objects.all()
+        queryset = Exchanger.objects.all().select_related()
         resource_name = 'exchangers'
         allowed_methods = ['get', 'patch', 'post', 'delete']
         authentication = CustomAuthentication()
         authorization = Authorization()
 
-    # def get_array(self, bundle):
-    #     data_curr = CartItem.objects.all().select_related('exchanger', 'currency').prefetch_related('exchanger', 'currency').order_by('id')
-    #     for curr in data_curr:
-    #         bundle.data.currency = {str(curr.currency):{"buy": curr.buy, "sell": curr.sell, "sum": curr.sum} }
-    #     return bundle
-
-
-
-    # def hydrate(self, bundle):
-    #     bundle.obj.id = bundle.data['id']
-    #     bundle.obj.address = bundle.data['address']
-    #     return bundle
-
-    # def get_data_curr(self, bundle):
-    #     data_curr = CartItem.objects.all().prefetch_related('exchanger', 'currency')
-    #     bundle.data = {str(curr.currency):{"buy": curr.buy, "sell": curr.sell, "sum": curr.sum} for curr in data_curr if bundle.obj.id == curr.exchanger.id}
-    #     return bundle
-
-
-
-    # def dehydrate(self, bundle):
-    #     data_curr = CartItem.objects.all().select_related('exchanger', 'currency').prefetch_related('exchanger', 'currency').order_by('id')
-    #     bundle.data['currency'] =  {str(curr.currency):{"buy": curr.buy, "sell": curr.sell, "sum": curr.sum} for curr in data_curr if bundle.obj.id == curr.exchanger.id}
-    #     return bundle
 
 
 class OrdersResource(ModelResource):
@@ -68,13 +44,13 @@ class OrdersResource(ModelResource):
 
 
 class CartItemResource(ModelResource):
-    exchanger = fields.ForeignKey(ExchangerResource, 'exchanger')
-    currency = fields.ForeignKey(CurrencyResource, 'currency')
+    exchanger = fields.ToOneField(ExchangerResource, 'exchanger')
+    currency = fields.ToOneField(CurrencyResource, 'currency')
 
     class Meta:
         queryset = CartItem.objects.all().select_related(
             'exchanger', 'currency').prefetch_related('exchanger', 'currency').order_by('id')
-        # queryset = CartItem.objects.all()
+
         resource_name = 'currencys'
         ordering = ['currency']
         filtering = {
@@ -86,12 +62,17 @@ class CartItemResource(ModelResource):
         authentication = CustomAuthentication()
         authorization = Authorization()
 
+
     def hydrate(self, bundle):
         bundle.obj.exchanger_id = bundle.data['exchanger_id']
         bundle.obj.currency_id = bundle.data['currency_id']
         return bundle
 
-    def dehydrate(self, bundle):
-        bundle.data['exchanger_id'] = bundle.obj.exchanger
+    def dehydrate(self, bundle, **kwargs):
+        bundle.data['address'] = bundle.obj.exchanger
         bundle.data['currency_id'] = bundle.obj.currency
+        exchanger_obj = Exchanger.objects.get(pk=bundle.obj.exchanger.id)
+        # id=bundle.obj.exchanger.id
+        bundle.data['address_map'] = exchanger_obj.address_map
+        # print(exchanger_obj)
         return bundle
