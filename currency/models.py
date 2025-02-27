@@ -1,11 +1,20 @@
 from django.db import models
 from django.utils import timezone
+# from django.contrib.auth.models import AbstractUser
 
 
-
+# class User(AbstractUser):
+#     ROLE_CHOICES = (
+#         ('admin', 'Администратор'),
+#         ('moderator', 'Модератор'),
+#         ('user', 'Пользователь'),
+#     )
+#     role = models.CharField(
+#         max_length=20, choices=ROLE_CHOICES, default='user')
 
 class Currency(models.Model):
-    name = models.CharField('Валюта', max_length=40, default='usd', unique = True)
+    name = models.CharField('Валюта', max_length=30, default='usd', unique = True)
+    code = models.CharField(max_length=3)
 
     def __str__(self):
         return f'{self.name}'
