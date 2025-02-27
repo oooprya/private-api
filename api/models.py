@@ -44,8 +44,8 @@ class OrdersResource(ModelResource):
 
 
 class CartItemResource(ModelResource):
-    exchanger = fields.ToOneField(ExchangerResource, 'exchanger')
-    currency = fields.ToOneField(CurrencyResource, 'currency')
+    exchanger = fields.ForeignKey(ExchangerResource, 'exchanger')
+    currency = fields.ForeignKey(CurrencyResource, 'currency')
 
     class Meta:
         queryset = CartItem.objects.all().select_related(
@@ -64,12 +64,11 @@ class CartItemResource(ModelResource):
 
 
     def hydrate(self, bundle):
-        bundle.obj.exchanger_id = bundle.data['exchanger_id']
         bundle.obj.currency_id = bundle.data['currency_id']
         return bundle
 
-    def dehydrate(self, bundle, **kwargs):
-        bundle.data['address'] = bundle.obj.exchanger
+    def dehydrate(self, bundle):
+        bundle.data['exchanger_id'] = bundle.obj.exchanger
         bundle.data['currency_id'] = bundle.obj.currency
         exchanger_obj = Exchanger.objects.get(pk=bundle.obj.exchanger.id)
         # id=bundle.obj.exchanger.id
