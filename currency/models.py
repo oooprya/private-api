@@ -17,7 +17,7 @@ class Currency(models.Model):
     code = models.CharField(max_length=3)
 
     def __str__(self):
-        return f'{self.code, self.name}'
+        return f'{self.name}'
 
     class Meta:
         verbose_name = "Валюта"
