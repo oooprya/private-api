@@ -14,6 +14,9 @@ class CartItemAdmin(admin.ModelAdmin):
     list_editable = ('buy', 'sell', 'sum')
     list_display_links = ["exchanger"]
 
+class CurrencyAdmin(admin.ModelAdmin):
+    list_display = ["name", "code"]
+
 class ExchangerAdmin(admin.ModelAdmin):
     inlines = [CurrencyInline]
     list_display = ["id","address"]
@@ -25,7 +28,7 @@ class OrdersAdmin(admin.ModelAdmin):
 
 
 admin.site.register(CartItem, CartItemAdmin)
-admin.site.register(Currency)
+admin.site.register(Currency, CurrencyAdmin)
 admin.site.register(Orders, OrdersAdmin)
 admin.site.register(Exchanger, ExchangerAdmin)
 

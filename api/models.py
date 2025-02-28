@@ -62,17 +62,9 @@ class CartItemResource(ModelResource):
         authentication = CustomAuthentication()
         authorization = Authorization()
 
-
-    def hydrate(self, bundle):
-        bundle.obj.exchanger_id = bundle.data['exchanger_id']
-        bundle.obj.currency_id = bundle.data['currency_id']
-        return bundle
-
     def dehydrate(self, bundle):
-        bundle.data['address'] = bundle.obj.exchanger
-        bundle.data['currency_id'] = bundle.obj.currency
-        exchanger_obj = Exchanger.objects.get(pk=bundle.obj.exchanger.id)
-        # id=bundle.obj.exchanger.id
-        bundle.data['address_map'] = exchanger_obj.address_map
-        # print(exchanger_obj)
+        bundle.data['address'] = bundle.obj.exchanger.address
+        bundle.data['address_map'] = bundle.obj.exchanger.address_map
+        bundle.data['currency_name'] = bundle.obj.currency.name
+        bundle.data['code'] = bundle.obj.currency.code
         return bundle
