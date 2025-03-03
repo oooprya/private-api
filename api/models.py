@@ -7,7 +7,7 @@ from .authentication import CustomAuthentication
 
 class CurrencyResource(ModelResource):
     class Meta:
-        queryset = Currency.objects.all()
+        queryset = Currency.objects.all().order_by('id')
         resource_name = 'currency'
         allowed_methods = ['get']
         authentication = CustomAuthentication()
