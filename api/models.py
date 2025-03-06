@@ -66,5 +66,6 @@ class CartItemResource(ModelResource):
         bundle.data['address'] = bundle.obj.exchanger.address
         bundle.data['address_map'] = bundle.obj.exchanger.address_map
         bundle.data['currency_name'] = bundle.obj.currency.name
+        bundle.data['working_hours'] = bundle.obj.currency.working_hours
         bundle.data['code'] = bundle.obj.currency.code
         return bundle
