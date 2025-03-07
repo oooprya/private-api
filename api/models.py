@@ -2,6 +2,7 @@ from tastypie.resources import ModelResource, ALL, ALL_WITH_RELATIONS
 from currency.models import Exchanger, CartItem, Currency, Orders
 from tastypie import fields
 from tastypie.authorization import Authorization
+from tastypie.http import HttpBadRequest, HttpCreated
 from .authentication import CustomAuthentication
 
 
@@ -41,6 +42,13 @@ class OrdersResource(ModelResource):
         allowed_methods = ['get', 'patch', 'post']
         authentication = CustomAuthentication()
         authorization = Authorization()
+
+        def obj_create(self, bundle, **kwargs):
+            try:
+                bundle = super().obj_create(bundle, **kwargs)  # Создаем объект
+                return self.create_response(bundle.request, {"message": "Продукт успешно создан!"}, response_class=HttpCreated)
+            except Exception as e:
+                return self.create_response(bundle.request, {"error": str(e)}, response_class=HttpBadRequest)
 
 
 class CartItemResource(ModelResource):
