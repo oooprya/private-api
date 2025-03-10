@@ -23,7 +23,7 @@ class ExchangerAdmin(admin.ModelAdmin):
     list_display_links = ["address"]
 
 class OrdersAdmin(admin.ModelAdmin):
-    list_display = ("id", 'currency_name', 'buy_or_sell', 'order_sum','exchange_rate', "status", "address_exchanger")
+    list_display = ("id", 'currency_name', 'buy_or_sell', 'order_sum','exchange_rate', "status", "сlients_telephone", "address_exchanger")
     list_editable = ['status']
 
 

@@ -73,6 +73,7 @@ class Orders(models.Model):
     buy_or_sell = models.CharField(max_length=8, blank=True)
     exchange_rate = models.DecimalField("Курс", decimal_places=2, max_digits=10, )
     order_sum = models.IntegerField("Сумма заказа", default=100)
+    created_at = models.DateTimeField(default=timezone.now)
 
 
     class Meta:
