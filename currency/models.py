@@ -43,8 +43,8 @@ class CartItem(models.Model):
     exchanger = models.ForeignKey(Exchanger, on_delete=models.CASCADE)
     currency = models.ForeignKey(Currency, on_delete=models.CASCADE)
 
-    buy = models.DecimalField("Покупка", decimal_places=4, max_digits=10, blank=True)
-    sell = models.DecimalField("Продажа", decimal_places=4, max_digits=10, blank=True)
+    buy = models.DecimalField("Покупка", decimal_places=6, max_digits=10,  blank=True)
+    sell = models.DecimalField("Продажа", decimal_places=6, max_digits=10, blank=True)
     sum = models.IntegerField("Сумма от 100 до 10000", default=100)
 
     updatedAt = models.DateTimeField(auto_now=True)
@@ -59,6 +59,7 @@ class CartItem(models.Model):
 class Orders(models.Model):
 
     STATUS_CHOICES = (
+    ('ordersent', 'Отправлен'),
     ('accepted', 'Принятый'),
     ('completed', 'Выполнен'),
     ('new', 'Новый'),
@@ -66,7 +67,7 @@ class Orders(models.Model):
     )
 
     status = models.CharField(choices=STATUS_CHOICES, max_length=10, default='new')
-    сlients_telephone = models.CharField(max_length = 16, help_text='+38096-123-45-67')
+    clients_telephone = models.CharField(max_length = 16, help_text='+38096-123-45-67')
     address_exchanger = models.CharField('Адрес Брони', max_length=100, blank=True)
     currency_name = models.CharField('Валюта', max_length=40, blank=True)
     buy_or_sell = models.CharField(max_length=8, blank=True)
@@ -75,5 +76,6 @@ class Orders(models.Model):
 
 
     class Meta:
+        ordering = ('-id',)
         verbose_name = "Заказ"
         verbose_name_plural = "Заказы"
