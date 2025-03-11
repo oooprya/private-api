@@ -9,7 +9,7 @@ class CurrencyResource(ModelResource):
     class Meta:
         queryset = Currency.objects.all().order_by('id')
         resource_name = 'currency'
-        allowed_methods = ['get']
+        allowed_methods = ['get', 'post']
         authentication = CustomAuthentication()
         authorization = Authorization()
 
