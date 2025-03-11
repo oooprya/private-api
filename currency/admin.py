@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Exchanger, Currency, CartItem, Orders
+from .models import Exchanger, Currency, CartItem, Orders, Users
 
 class CurrencyInline(admin.TabularInline):
     model = CartItem
@@ -30,6 +30,5 @@ class OrdersAdmin(admin.ModelAdmin):
 admin.site.register(CartItem, CartItemAdmin)
 admin.site.register(Currency, CurrencyAdmin)
 admin.site.register(Orders, OrdersAdmin)
+admin.site.register(Users)
 admin.site.register(Exchanger, ExchangerAdmin)
-
-# Register your models here.

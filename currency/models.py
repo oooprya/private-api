@@ -1,20 +1,27 @@
 from django.db import models
 from django.utils import timezone
-# from django.contrib.auth.models import AbstractUser
 
 
-# class User(AbstractUser):
-#     ROLE_CHOICES = (
-#         ('admin', 'Администратор'),
-#         ('moderator', 'Модератор'),
-#         ('user', 'Пользователь'),
-#     )
-#     role = models.CharField(
-#         max_length=20, choices=ROLE_CHOICES, default='user')
+class Users(models.Model):
+    ROLE_CHOICES = (
+        ('cashier', 'Касир'),
+        ('moderator', 'Модератор'),
+        ('client', 'Клієнт'),
+    )
+    chat_id = models.IntegerField(blank=True)
+    chat_id_name = models.CharField(max_length=150, blank=True)
+    role = models.CharField(
+        max_length=10, choices=ROLE_CHOICES, default='user')
+
+    class Meta:
+        verbose_name = "Пользователь"
+        verbose_name_plural = "Пользователи"
+
+
 
 class Currency(models.Model):
     name = models.CharField('Валюта', max_length=30, default='usd', unique = True)
-    code = models.CharField(max_length=3)
+    code = models.CharField(max_length=7)
 
     def __str__(self):
         return f'{self.name}'
