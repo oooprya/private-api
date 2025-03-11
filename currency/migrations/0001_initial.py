@@ -76,8 +76,8 @@ class Migration(migrations.Migration):
             name='CartItem',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('buy', models.DecimalField(blank=True, decimal_places=6, max_digits=10, verbose_name='Покупка')),
-                ('sell', models.DecimalField(blank=True, decimal_places=6, max_digits=10, verbose_name='Продажа')),
+                ('buy', models.DecimalField(blank=True, decimal_places=4, max_digits=10, verbose_name='Покупка')),
+                ('sell', models.DecimalField(blank=True, decimal_places=4, max_digits=10, verbose_name='Продажа')),
                 ('sum', models.IntegerField(default=100, verbose_name='Сумма от 100 до 10000')),
                 ('updatedAt', models.DateTimeField(auto_now=True)),
                 ('currency', models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='currency.currency')),
