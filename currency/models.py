@@ -50,8 +50,8 @@ class CartItem(models.Model):
     exchanger = models.ForeignKey(Exchanger, on_delete=models.CASCADE)
     currency = models.ForeignKey(Currency, on_delete=models.CASCADE)
 
-    buy = models.DecimalField("Покупка", decimal_places=6, max_digits=10,  blank=True)
-    sell = models.DecimalField("Продажа", decimal_places=6, max_digits=10, blank=True)
+    buy = models.DecimalField("Покупка", decimal_places=4, max_digits=10,  blank=True)
+    sell = models.DecimalField("Продажа", decimal_places=4, max_digits=10, blank=True)
     sum = models.IntegerField("Сумма от 100 до 10000", default=100)
 
     updatedAt = models.DateTimeField(auto_now=True)
