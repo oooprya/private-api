@@ -21,6 +21,7 @@ class Users(models.Model):
 
 
 class Currency(models.Model):
+    list_id = models.ImageField(default=0)
     name = models.CharField('Валюта', max_length=30, default='usd', unique = True)
     code = models.CharField(max_length=7)
 
@@ -28,6 +29,7 @@ class Currency(models.Model):
         return f'{self.name}'
 
     class Meta:
+        ordering = ('list_id',)
         verbose_name = "Валюта"
         verbose_name_plural = "Валюты"
 
@@ -43,6 +45,7 @@ class Exchanger(models.Model):
         return self.address
 
     class Meta:
+        ordering = ('id',)
         verbose_name = "Обменик"
         verbose_name_plural = "Все Обменики"
 
@@ -60,7 +63,7 @@ class CartItem(models.Model):
     def save(self, *args, **kwargs):
         if self.buy is not None:
             rounded_buy = self.buy.quantize(Decimal("0.001"))  # Округление
-            self.buy = rounded_buy if rounded_buy % 1 != 0 else Decimal(int(rounded_buy))  # Убираем .00
+            self.buy = rounded_buy if rounded_buy * 1 != 0 else Decimal(int(rounded_buy))  # Убираем .00
 
         super().save(*args, **kwargs)
 
@@ -92,6 +95,6 @@ class Orders(models.Model):
 
 
     class Meta:
-        ordering = ('-id',)
+        ordering = ('-created_at',)
         verbose_name = "Заказ"
         verbose_name_plural = "Заказы"
