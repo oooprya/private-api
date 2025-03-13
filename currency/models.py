@@ -21,7 +21,6 @@ class Users(models.Model):
 
 
 class Currency(models.Model):
-    code_id = models.ImageField(default=0)
     name = models.CharField('Валюта', max_length=30, default='usd', unique = True)
     code = models.CharField(max_length=7)
 
@@ -29,7 +28,7 @@ class Currency(models.Model):
         return f'{self.name}'
 
     class Meta:
-        ordering = ('code_id',)
+        ordering = ('id',)
         verbose_name = "Валюта"
         verbose_name_plural = "Валюты"
 
