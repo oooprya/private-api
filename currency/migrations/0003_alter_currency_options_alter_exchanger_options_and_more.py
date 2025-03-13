@@ -12,7 +12,7 @@ class Migration(migrations.Migration):
     operations = [
         migrations.AlterModelOptions(
             name='currency',
-            options={'ordering': ('list_id',), 'verbose_name': 'Валюта', 'verbose_name_plural': 'Валюты'},
+            options={'ordering': ('code_id',), 'verbose_name': 'Валюта', 'verbose_name_plural': 'Валюты'},
         ),
         migrations.AlterModelOptions(
             name='exchanger',
@@ -24,7 +24,7 @@ class Migration(migrations.Migration):
         ),
         migrations.AddField(
             model_name='currency',
-            name='list_id',
+            name='code_id',
             field=models.ImageField(default=0, upload_to=''),
         ),
     ]
