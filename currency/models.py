@@ -1,5 +1,6 @@
 from django.db import models
 from django.utils import timezone
+from decimal import Decimal
 
 
 class Users(models.Model):
@@ -50,11 +51,18 @@ class CartItem(models.Model):
     exchanger = models.ForeignKey(Exchanger, on_delete=models.CASCADE)
     currency = models.ForeignKey(Currency, on_delete=models.CASCADE)
 
-    buy = models.DecimalField("Покупка", decimal_places=2, max_digits=10,  blank=True)
-    sell = models.DecimalField("Продажа", decimal_places=2, max_digits=10, blank=True)
+    buy = models.DecimalField("Покупка", decimal_places=3, max_digits=10,  blank=True)
+    sell = models.DecimalField("Продажа", decimal_places=3, max_digits=10, blank=True)
     sum = models.IntegerField("Сумма от 100 до 10000", default=100)
 
     updatedAt = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if self.buy is not None:
+            rounded_buy = self.buy.quantize(Decimal("0.001"))  # Округление
+            self.buy = rounded_buy if rounded_buy % 1 != 0 else Decimal(int(rounded_buy))  # Убираем .00
+
+        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "Курс валют"
