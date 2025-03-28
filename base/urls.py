@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.urls import path, include
 from api.models import ExchangerResource, CartItemResource, CurrencyResource, OrdersResource
 from tastypie.api import Api
+from .views import sitemap
 
 
 app_name = 'Home'
@@ -20,5 +21,6 @@ api.register(exchanger_resource)
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(api.urls)),
+    path("sitemap.xml", sitemap, name="sitemap"),
 ]
 
