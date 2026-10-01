@@ -1,0 +1,578 @@
+{% extends "unfold/layouts/base_simple.html" %}
+{% load static i18n unfold humanize %}
+
+    
+{% block title %}
+    {% if subtitle %}
+        {{ subtitle }} |
+    {% endif %}
+
+    {{ title }} | {{ site_title|default:_('ExPrivat') }}
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="manifest" href="{% static 'pwa/manifest.json' %}">
+<meta name="theme-color" content="#1f2937">
+<link rel="apple-touch-icon" href="{% static 'pwa/icon-192.png' %}">
+
+
+<script defer>
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/static/pwa/sw.js")
+}
+</script>
+
+{% endblock %}
+
+{% block content %}
+
+{% if messages %}
+  <div id="django-messages" class="mb-4 space-y-2 fixed lg:relative top-4 left-0 transform  w-full max-w-2xl z-10 px-4">
+    {% for message in messages %}
+      {# Determine alert color by message.tags (Django messages) #}
+      <div class="relative mb-3 px-3 py-2.5 leading-[18px] rounded-default {% if "error" in message.tags %}errornote mb-3 group-[.inline-tabular]:mb-0 group-[.inline-tabular]:mt-3 group-[.inline-tabular]:mx-3 group-[.inline-stacked]:mb-3 group-[.inline-stacked]:mt-3 group-[.inline-stacked]:mx-3 bg-red-100 text-red-700 dark:bg-red-500/20 dark:text-red-400 {% elif "warning" in message.tags %}bg-orange-100 text-orange-700 dark:bg-orange-500/20 dark:text-orange-400{% elif "success" in message.tags %}mb-3 px-3 py-2.5 leading-[18px] rounded-default bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400 {% else %}bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300{% endif %}" data-message-tags="{{ message.tags }}">
+        <button type="button" class="absolute top-2 right-2 text-sm opacity-60 hover:opacity-100" aria-label="Закрыть" onclick="this.closest('[data-message-tags]').remove()">×</button>
+        {{ message }}
+      </div>
+    {% endfor %}
+  </div>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      const alerts = document.querySelectorAll('#django-messages [data-message-tags]');
+      alerts.forEach(alert => {
+        setTimeout(() => {
+          alert.classList.add('opacity-0', 'transition', 'duration-300');
+          setTimeout(() => alert.remove(), 300);
+        }, 5000);
+      });
+    });
+  </script>
+{% endif %}
+
+<div class="space-y-6">
+
+
+
+{% if dashboard_balances %}
+    
+    
+    {% if is_senior %}
+
+        <div class="flex items-center gap-2">
+            <!-- Назад -->
+            <a href="?date={{ prev_date|date:'Y-m-d' }}" 
+            class="px-3 py-1.5 rounded border transition-colors
+                    bg-white text-gray-600 border-gray-300 hover:border-primary-400
+                    dark:bg-base-800 dark:text-gray-300 dark:border-base-600"
+            title="Предыдущая дата">
+                ←
+            </a>
+
+            <!-- Сегодня -->
+            <a href="?date={{ today|date:'Y-m-d' }}"
+            class="px-3 py-1.5 rounded border transition-colors font-medium text-xs
+                    {% if selected_date == today %}bg-primary-600 text-white border-primary-600{% else %}bg-white text-gray-600 border-gray-300 hover:border-primary-400 dark:bg-base-800 dark:text-gray-300 dark:border-base-600{% endif %}">
+                Сегодня
+            </a>
+
+            <!-- Календарь -->
+            <form method="get" class="inline">
+                <input type="date"
+                    name="date"
+                    value="{{ selected_date|date:'Y-m-d' }}"
+                    onchange="this.form.submit()"
+                    class="px-2 py-1.5 rounded border border-gray-300 dark:border-base-600
+                        dark:bg-base-700 dark:text-gray-300
+                        cursor-pointer hover:border-primary-400">
+            </form>
+
+            <!-- Вперёд -->
+            <a href="?date={{ next_date|date:'Y-m-d' }}"
+            class="px-3 py-1.5 rounded border transition-colors
+                    bg-white text-gray-600 border-gray-300 hover:border-primary-400
+                    dark:bg-base-800 dark:text-gray-300 dark:border-base-600"
+            title="Следующая дата">
+                →
+            </a>
+        </div>
+    
+        <!-- Summary cards: deals, bought, sold, profit (visible to senior users) -->
+        
+
+        <!-- Summary cards: deals, bought, sold, profit (visible to senior users) -->
+        <div class="grid gap-2 lg:gap-4 grid-cols-2 md:grid-cols-4 my-2">
+            <div class="border border-base-200 dark:border-base-700 rounded p-2 bg-white dark:bg-base-800 text-center">
+                <div class="text-sm text-gray-500">Количество сделок</div>
+                <div id="global-deals" class="text-2xl font-bold">{% if global_totals %}{{ global_totals.deals_count|default:0 }}{% else %}0{% endif %}</div>
+            </div>
+
+            <div class="border border-base-200 dark:border-base-700 rounded p-2 bg-white dark:bg-base-800 text-center">
+                <div class="text-sm text-gray-500">Купили всего (UAH)</div>
+                <div id="global-bought" class="text-2xl font-bold">{% if global_totals %}{{ global_totals.total_bought|floatformat:0 }}{% else %}0{% endif %}</div>
+            </div>
+
+            <div class="border border-base-200 dark:border-base-700 rounded p-2 bg-white dark:bg-base-800 text-center">
+                <div class="text-sm text-gray-500">Продали всего (UAH)</div>
+                <div id="global-sold" class="text-2xl font-bold">{% if global_totals %}{{ global_totals.total_sold|floatformat:0 }}{% else %}0{% endif %}</div>
+            </div>
+
+            <div class=" border border-green-700 rounded p-2 dark:bg-base-800 text-center">
+                <div class="text-sm text-gray-500">{% if selected_date == today %}Текущая прибыль{% else %}Общая прибыль{% endif %}</div>
+                <div id="global-profit" class="text-2xl font-bold text-green-700">{% if global_totals %}{{ global_totals.profit|floatformat:0 }}{% else %}0{% endif %}</div>
+            </div>
+        </div>
+
+        <div class="bg-white dark:bg-base-800 rounded-2xl">
+
+            <div class="overflow-x-auto">
+                <table class="w-full md:w-auto min-w-full text-sm">
+
+                    <thead>
+                        <tr class="border-b dark:border-base-700">
+
+                            {% for th in dashboard_balances.headers %}
+                                <th class="p-1 whitespace-nowrap">
+                                    {{ th }}
+                                </th>
+                            {% endfor %}
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for row_obj in dashboard_balances.rows %}
+                            <tr class="border-b hover:bg-gray-50 dark:hover:bg-base-900">
+
+                                {% for cell in row_obj.cells %}
+                                    {% if forloop.first %}
+                                        <td class="sticky inset-0 p-0 whitespace-nowrap font-medium">
+                                            {% if row_obj.node_id %}
+                                                <a href="{% url 'admin:wholesale_wholesaleorder_changelist' %}?shift__node__id={{ row_obj.node_id }}"
+                                                   class="node-tab text-xs font-semibold  transition-colors
+                                                           bg-white text-blue-600 border-gray-300 hover:border-primary-400
+                                                           dark:bg-base-800 dark:text-gray-300 dark:border-base-600"
+                                                   title="Все операции"> {{ cell }}
+                                                </a>
+                                            {% else %}
+                                                {{ cell }}
+                                            {% endif %}
+                                        </td>
+                                    {% else %}
+                                        <td class="p-1 whitespace-nowrap border border-base-300 dark:border-base-700 text-right">
+                                            <span 
+                                                data-node="{{row_obj.node_id}}" 
+                                                data-currency="{{ dashboard_balances.headers|index:forloop.counter0|lower }}"
+                                                {% if dashboard_balances.headers|index:forloop.counter0 == "Сделки" %}data-deals{% endif %}
+                                                {% if dashboard_balances.headers|index:forloop.counter0 == "Прибыль" %}data-profit{% endif %}>
+                                                {{ cell }}
+                                            </span>
+                                        </td>
+                                    {% endif %}
+                                {% endfor %}
+
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+        </div>
+    {% else %}
+{% for node in dashboard_balances %}
+       
+        <div class="bg-white rounded-2xl shadow-lg p-3 lg:p-4 border border-gray-200 mb-4 rounded dark:bg-base-800 dark:border-base-700">
+
+                <div>
+                    <h3 class="font-semibold mb-4">
+                       
+                        <div class="flex flex-row gap-4 justify-between">
+                            <div class="flex flex-row gap-4">
+                                <div class="text-sm text-gray-500" 
+                                    data-node="{{ node.node_id }}" data-cashier>
+                                    {% if node.cashier %}
+                                    🕒  {{ node.opened_at }}  
+                                    {% else %}
+                                        Нет активной смены
+                                    {% endif %}
+                                </div>
+                            </div>
+                        
+                            {% if node.phone %}
+                            <a class="text-sm text-gray-600" href="tel:{{ node.phone }}" data-node="{{ node.node_id }}" title="{{ node.cashier }}" data-phone>📞</a>
+                            {% endif %}
+
+                            <div class="text-sm text-gray-600">
+                                <a href="{% url 'admin:wholesale_wholesaleorder_changelist' %}?shift__node__id={{ node.node_id }}"
+                                    class="node-tab px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors
+                                            bg-white text-gray-600 border-gray-300 hover:border-primary-400
+                                            dark:bg-base-800 dark:text-gray-300 dark:border-base-600" title="Все операции">
+                                    🏦 {{ node.node_name}}
+                                 </a>
+                                                    
+                            </div>
+                        </div>
+
+                      
+                        
+                    </h3>
+                
+
+                    <div class="grid gap-2 lg:gap-4 md:grid-cols-2 lg:grid-cols-4 ">
+                       {% if node.usd.total != 0 %}
+
+                            <!-- USD блок -->
+                            <div class="border border-base-200 dark:border-base-800 rounded shadow p-3 dark:p-0">
+
+                                <div class="text-sm text-base-400 dark:text-base-800">
+                                    Общий USD
+                                </div>
+
+                                <div class="text-xl font-bold" data-node="{{ node.node_id }}" data-usd="total">
+                                    {{ node.usd.total|floatformat:0 }}
+                                </div>
+                               
+                                <div class="text-sm text-blue-600" data-usd-row="new" {% if node.usd.new == 0 %}style="display:none"{% endif %}>
+                                    💙 Новый:
+                                    <span data-node="{{ node.node_id }}" data-usd="new">
+                                        {{ node.usd.new|floatformat:0 }}
+                                    </span>
+                                </div>
+                                
+                                
+                                <div class="text-sm text-gray-500" data-usd-row="old" {% if node.usd.old == 0 %}style="display:none"{% endif %}>
+                                    Ветхий:
+                                    <span data-node="{{ node.node_id }}" data-usd="old">
+                                        {{ node.usd.old|floatformat:0 }}
+                                    </span>
+                                </div>
+                                
+
+                            </div> 
+                        {% endif %}
+
+                        {% for b in node.balances %}
+
+                            {% if b.currency != "usd" and  b.currency != "usdnew" and  b.currency != "usdold" %}
+                            <div class="border border-base-200 dark:border-base-800 rounded shadow-xs p-3 dark:p-0">
+                                
+                                <div class="text-sm text-base-400 dark:text-base-800 {% if b.currency == "uah" %} text-primary-500  {% endif %}">
+                                    {{ b.currency_name}}
+                                </div>
+
+                                <div class="text-xl text-base-800 dark:text-base-100 font-bold"
+                                    data-node="{{ node.node_id }}"
+                                    data-currency="{{ b.currency }}">
+                                    {{ b.amount|floatformat:0 }}
+                                </div>
+                            
+                            </div>
+
+                            {% endif %}
+                            
+                       
+                            
+                            
+                            
+                        {% endfor %}
+
+                        
+                    </div>
+
+                </div>
+
+
+        </div>
+
+        
+{% endfor %}
+    {% endif %}
+{% else %}
+
+<div class="text-gray-500">Нет данных</div>
+
+{% endif %}
+
+</div>
+
+
+
+<script>
+const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
+
+const socket = new WebSocket(
+    protocol + window.location.host + "/ws/dashboard/global/"
+); 
+
+socket.onopen = function() {
+   // console.log("WebSocket connected");
+};
+
+socket.onmessage = function(event){
+
+    const data = JSON.parse(event.data);
+
+    updateBalances(data);
+    updateUsd(data);
+    updateCashier(data);
+    updateNodeStats(data); 
+    updateGlobalTotals(data);
+    
+} 
+
+socket.onclose = function() {
+    console.log("WebSocket closed");
+};
+    
+
+function updateBalances(data){
+
+    if(!data.balances) return;
+
+    for(const currency in data.balances){
+
+        const amount = data.balances[currency];
+
+        const el = document.querySelector(
+            `[data-node="${data.node_id}"][data-currency="${currency}"]`
+        );
+
+        const usdTotal = document.querySelector(
+            `[data-node="${data.node_id}"][data-currency="usd_total"]`
+        );
+        if(el){
+
+            if (usdTotal) {
+                usdTotal.innerText = formatMoney(data.usd_total || 0);
+            }
+
+            el.innerText = new Intl.NumberFormat('uk-UA', {
+                minimumFractionDigits: 0,
+                maximumFractionDigits: 0
+            }).format(amount);
+
+            el.classList.add("flash-update");
+
+            setTimeout(()=>{
+                el.classList.remove("flash-update");
+            },1000);
+
+            playSound();
+        }
+    }
+}
+function formatMoney(v){
+    return new Intl.NumberFormat('uk-UA', {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 0
+    }).format(v)
+}
+function updateUsd(data){
+
+
+    const total = document.querySelector(
+        `[data-node="${data.node_id}"][data-usd="total"]`
+    )
+
+    const usdNew = document.querySelector(
+        `[data-node="${data.node_id}"][data-usd="new"]`
+    )
+
+    const usdOld = document.querySelector(
+        `[data-node="${data.node_id}"][data-usd="old"]`
+    )
+
+    const newRow = usdNew?.closest('[data-usd-row="new"]')
+    const oldRow = usdOld?.closest('[data-usd-row="old"]')
+
+    const totalValue = data.usd_total || 0
+    const newValue = data.balances["usdnew"] || 0
+    const oldValue = data.balances["usdold"] || 0
+
+    if(total){
+        total.innerText = formatMoney(totalValue)
+    }
+
+    if(usdNew){
+        usdNew.innerText = formatMoney(newValue)
+
+        if(newRow){
+            newRow.style.display = newValue === 0 ? "none" : ""
+        }
+    }
+
+    if(usdOld){
+        usdOld.innerText = formatMoney(oldValue)
+
+        if(oldRow){
+            oldRow.style.display = oldValue === 0 ? "none" : ""
+        }
+    }
+}
+
+function updateCashier(data){
+    console.log("updateCashier:", data);
+    const el = document.querySelector(
+        `[data-node="${data.node_id}"][data-cashier]`
+    );
+    const phone = document.querySelector(`[data-node="${data.node_id}"][data-phone]`
+    );
+
+    if(!el) return;
+
+    if(data.cashier){
+     
+        el.innerText = "🕒 " + data.opened_at + " | " + data.cashier;
+        phone.innerText = " 📞 " +  data.phone;
+
+    }else{
+
+        el.innerText = "Нет активной смены";
+
+    }
+
+
+}
+
+function updateGlobalTotals(data){
+    const profitEl = document.getElementById('global-profit');
+    const dealsEl = document.getElementById('global-deals');
+    const boughtEl = document.getElementById('global-bought');
+    const soldEl = document.getElementById('global-sold');
+
+    if(!profitEl && !dealsEl && !boughtEl && !soldEl) return;
+
+    // Prefer server-provided aggregated totals
+    if(data.global_totals){
+        const profit = data.global_totals.profit || 0;
+        const deals = data.global_totals.deals_count || 0;
+        const bought = data.global_totals.total_bought || 0;
+        const sold = data.global_totals.total_sold || 0;
+
+        if(profitEl) profitEl.innerText = formatMoney(profit);
+        if(dealsEl) dealsEl.innerText = new Intl.NumberFormat('uk-UA').format(deals);
+        if(boughtEl) boughtEl.innerText = formatMoney(bought);
+        if(soldEl) soldEl.innerText = formatMoney(sold);
+        return;
+    }
+
+    // Fallback: sum values from table cells with data-currency
+    let uahTotal = 0;
+    let usdTotal = 0;
+
+    const cells = document.querySelectorAll('table [data-currency]');
+    cells.forEach(el=>{
+        const cur = (el.getAttribute('data-currency')||'').toLowerCase();
+        let text = (el.innerText || el.textContent || '0').trim();
+        text = text.replace(/[^0-9\-,.]/g,'').replace(',', '.').replace(/\s/g,'');
+        const val = parseFloat(text) || 0;
+
+        if(cur.includes('uah')) uahTotal += val;
+        if(cur.includes('usd')) usdTotal += val;
+    });
+
+    // we no longer render global UAH/USD cards here; UI reads totals from server when available
+
+    // Profit: use server data when available
+    let profit = 0;
+    if(data.profit_total) profit = data.profit_total;
+    else if(data.totals && data.totals.profit) profit = data.totals.profit;
+
+    if(profitEl) profitEl.innerText = formatMoney(profit || 0);
+
+}
+
+let soundEnabled = localStorage.getItem("admin-sound") !== "off";
+
+const soundBtn = document.getElementById("sound-toggle");
+
+function updateSoundIcon(){
+    if(!soundBtn) return;
+    soundBtn.textContent = soundEnabled ? "🔔" : "🔕";
+}
+
+if(soundBtn){
+
+    updateSoundIcon();
+
+    soundBtn.addEventListener("click", () => {
+
+        soundEnabled = !soundEnabled;
+
+        localStorage.setItem(
+            "admin-sound",
+            soundEnabled ? "on" : "off"
+        );
+
+        updateSoundIcon();
+
+    });
+}
+
+
+function playSound(){
+
+    if(!soundEnabled) return;
+
+    const audio = document.getElementById("update-sound");
+
+    if(!audio) return;
+
+    audio.currentTime = 0;
+    audio.play().catch(()=>{});
+}
+
+function updateNodeStats(data){
+    if(!data.node_id) return;
+
+    // Обновление колонки "Общий $"
+    const usdTotalEl = document.querySelector(
+        `[data-node="${data.node_id}"][data-currency="общий $"]`
+    );
+    if(usdTotalEl && data.usd_total !== undefined){
+        usdTotalEl.innerText = formatMoney(data.usd_total);
+        usdTotalEl.classList.add("flash-update");
+        setTimeout(() => usdTotalEl.classList.remove("flash-update"), 1000);
+    }
+
+    // Обновление колонки "Сделки"
+    const dealsEl = document.querySelector(
+        `[data-node="${data.node_id}"][data-deals]`
+    );
+    if(dealsEl && data.deals_count !== undefined){
+        dealsEl.innerText = data.deals_count.toString();
+        dealsEl.classList.add("flash-update");
+        setTimeout(() => dealsEl.classList.remove("flash-update"), 1000);
+    }
+
+    // Обновление колонки "Прибыль"
+    const profitEl = document.querySelector(
+        `[data-node="${data.node_id}"][data-profit]`
+    );
+    if(profitEl && data.profit !== undefined){
+        profitEl.innerText = formatMoney(data.profit);
+        profitEl.classList.add("flash-update");
+        setTimeout(() => profitEl.classList.remove("flash-update"), 1000);
+    }
+
+    playSound();
+}
+</script>
+<style>
+/* ✅ Добавляем эффект мигания для обновлённых значений */
+@keyframes flash {
+    0%, 100% { 
+        background-color: transparent;
+    color: inherit; 
+}
+    
+    50% { 
+        background-color: rgba(34, 197, 94, 0.2); 
+        color: #006124;
+    }
+}
+ 
+.flash-update {
+    animation: flash 1s ease-in-out;
+}
+</style>
+{% endblock %}

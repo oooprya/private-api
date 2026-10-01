@@ -1,0 +1,32 @@
+{% extends "unfold/layouts/base.html" %}
+{% load static i18n %}
+
+{% block title %}
+    {% if subtitle %}
+        {{ subtitle }} |
+    {% endif %}
+
+    {{ title }} | {{ site_title|default:_('ExPrivat') }}
+{% endblock %}
+
+{% block extrahead %}
+{{ block.super }}
+<link rel="manifest" href="{% static 'pwa/manifest.json' %}">
+<meta name="theme-color" content="#1f2937">
+<link rel="apple-touch-icon" href="{% static 'pwa/icon-192.png' %}">
+
+<link rel="stylesheet" href="{% static 'admin/custom.css' %}?1.6">
+<audio id="update-sound" preload="auto">
+    <source src="{% static 'sounds/update.mp3' %}" type="audio/mpeg" >
+</audio>
+    
+
+<script defer>
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("/static/pwa/sw.js")
+}
+</script>
+
+{% endblock %}
+
+ 
