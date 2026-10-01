@@ -6,6 +6,169 @@ def sitemap(request):
     xml = f"""<?xml version="1.0" encoding="UTF-8"?>
     <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
         <url>
+            <loc>https://exprivat.com.ua/</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/bank-metals</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/obmin/uspenskaya-41</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/obmin/mala-arnautska-49</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/usd</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/usdnew</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/eur</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/gbp</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/pln</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/chf</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/aud</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/nok</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/dkk</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/cad</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/cny</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/try</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/ils</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/ron</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/mdl</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/czk</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/huf</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/sek</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/aed</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/bgn</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/usd-eur</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/chf-usd</loc>
+            <lastmod>{now}</lastmod>
+            <changefreq>hourly</changefreq>
+            <priority>1.0</priority>
+        </url>
+        <url>
+            <loc>https://exprivat.com.ua/kurs/gbp-usd</loc>
             <loc>https://www.exprivat.com.ua/</loc>
             <lastmod>{now}</lastmod>
             <changefreq>hourly</changefreq>
@@ -13,4 +176,13 @@ def sitemap(request):
         </url>
     </urlset>
     """
+    return HttpResponse(xml, content_type="application/xml")
+
+
+# def dashboard_callback(request, context):
+#     context.update({
+#         "custom_variable": "value",
+#     })
+
+#     return context
     return HttpResponse(xml, content_type="application/xml")

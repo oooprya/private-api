@@ -1,0 +1,162 @@
+{% extends "admin/base_site.html" %}
+{% load static %}
+
+{% block content %}
+<h2 class="text-2xl font-bold text-emerald-600">
+    {% if order_type == "buy" %} Покупка валюты
+    {% elif order_type == "sell" %} Продажа валюты
+    {% elif order_type == "in" %} Приход
+    {% elif order_type == "out" %} Расход
+    {% elif order_type == "add" %} Подкрепление
+    {% elif order_type == "collect" %} Инкассация
+    {% endif %}
+    </h2>
+
+
+<div class="grid grid-cols-1 gap-6 lg:mt-6 lg:py-4">
+  <div class="form-rows dark:border-base-800 md:border py-4 aligned border-base-200 shadow-xs rounded">
+    <form id="exchange-form" method="post" class="flex flex-col gap-4">
+        {% csrf_token %}
+
+        <input type="hidden" name="request_id" value="{{ request_id }}">
+        <input type="hidden" name="order_type" value="{{ order_type }}">
+        <div class="flex flex-col lg:flex-row gap-4 lg:gap-10 items-center">
+            <div class="lg:w-1/4 w-full">
+                <label class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark required">Валюта:</label>
+                <select name="currency" id="currency"  class="border border-base-200 bg-white font-medium min-w-20 placeholder-base-400 rounded shadow-xs text-font-default-light text-sm focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600 group-[.errors]:border-red-600 focus:group-[.errors]:outline-red-600 dark:bg-base-900 dark:border-base-700 dark:text-font-default-dark dark:group-[.errors]:border-red-500 dark:focus:group-[.errors]:outline-red-500 dark:scheme-dark group-[.primary]:border-transparent disabled:!bg-base-50 dark:disabled:!bg-base-800 px-3 py-2 w-full pr-8! max-w-2xl appearance-none text-ellipsis ">
+                    {% for currency in currencies %}
+                        <option value="{{ currency.id }}" data-code="{{ currency.code }}">{{ currency.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="lg:w-1/4 w-full" id="base-currency-select-wrapper" style="display: none;">
+                <label id="base-currency-label-text">Версія валюти:</label>
+                <select name="base_currency" id="base_currency" class="border border-base-200 bg-white font-medium min-w-20 placeholder-base-400 rounded shadow-xs text-font-default-light text-sm focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600 group-[.errors]:border-red-600 focus:group-[.errors]:outline-red-600 dark:bg-base-900 dark:border-base-700 dark:text-font-default-dark dark:group-[.errors]:border-red-500 dark:focus:group-[.errors]:outline-red-500 dark:scheme-dark group-[.primary]:border-transparent disabled:!bg-base-50 dark:disabled:!bg-base-800 px-3 py-2 w-full pr-8! max-w-2xl appearance-none text-ellipsis ">
+                </select>
+            </div>
+            <div class="mt-2 text-sm text-gray-600">
+                Текущий баланс <span id="balance-currency-label"></span>:
+                <span id="current-balance" class="font-bold text-lg">0</span>
+            </div>
+        </div>
+
+        <div class="flex gap-4 flex-row lg:gap-10 items-center">
+            <div class="lg:w-1/4 w-full">
+                <label class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark required">Сумма:</label>
+                <input class="border border-base-200 bg-white font-medium min-w-20 placeholder-base-400 rounded shadow-xs text-font-default-light text-sm focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600 group-[.errors]:border-red-600 focus:group-[.errors]:outline-red-600 dark:bg-base-900 dark:border-base-700 dark:text-font-default-dark dark:group-[.errors]:border-red-500 dark:focus:group-[.errors]:outline-red-500 dark:scheme-dark group-[.primary]:border-transparent disabled:!bg-base-50 dark:disabled:!bg-base-800 px-3 py-2 w-full max-w-2xl" type="number" step="0.01" name="amount" id="amount" required>
+                <p id="amount-error" class="text-red-600 text-xs mt-1" style="display: none;"></p>
+                {% comment %} <div class="text-xs text-gray-400 mt-1">1=100 • 2=500 • 3=1 000 • 4=5 000 • 5=10 000 •  Esc=очистить</div> {% endcomment %}
+            </div>
+
+            {% if not is_movement %}
+            <div class="lg:w-1/4 w-full">
+                <label class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark required">Курс:</label>
+                <input type="number" step="0.00001" name="rate" id="rate" required class="border border-base-200 bg-white font-medium min-w-20 placeholder-base-400 rounded shadow-xs text-font-default-light text-sm focus:outline-2 focus:-outline-offset-2 focus:outline-primary-600 group-[.errors]:border-red-600 focus:group-[.errors]:outline-red-600 dark:bg-base-900 dark:border-base-700 dark:text-font-default-dark dark:group-[.errors]:border-red-500 dark:focus:group-[.errors]:outline-red-500 dark:scheme-dark group-[.primary]:border-transparent disabled:!bg-base-50 dark:disabled:!bg-base-800 px-3 py-2 w-full max-w-2xl ">
+            </div>
+            {% endif %}
+         </div>
+         {% if not is_movement %}
+         <div class="items-center flex flex-row gap-4 p-3 py-2.5 dark:bg-base-800 dark:border-base-700">
+            <!-- Для обычных курсов - эквивалент в UAH -->
+            <p id="uah-equiv" style="display: none;">Эквивалент <span id="uah_result" class="text-2xl font-semibold text-important tracking-tight max-w-2xl lg:text-3xl">0</span> Гривен</p>
+            <!-- Для кроссовых курсов - эквивалент в базовой валюте -->
+            <p id="cross-equiv" style="display: none;">Эквивалент:  <span id="cross_result" class="text-2xl font-semibold text-important tracking-tight max-w-2xl lg:text-3xl">0</span> <span id="base-currency-code">USD</span></p>
+         </div>
+         {% endif %}
+         
+         <div class="lg:w-1/2 w-full">
+                <label class="block font-semibold mb-2 text-font-important-light text-sm dark:text-font-important-dark required">Комментарий</label>
+                <textarea name="comment" rows="2" class="border border-base-200 bg-white font-medium min-w-20 placeholder-base-400 rounded shadow-sm text-font-default-light text-sm focus:ring focus:ring-primary-300 focus:border-primary-600 focus:outline-none group-[.errors]:border-red-600 group-[.errors]:focus:ring-red-200 dark:bg-base-900 dark:border-base-700 dark:text-font-default-dark dark:focus:border-primary-600 dark:focus:ring-primary-700 dark:focus:ring-opacity-50 dark:group-[.errors]:border-red-500 dark:group-[.errors]:focus:ring-red-600/40 px-3 py-2 w-full max-w-4xl appearance-none expandable transition transition-height duration-75 ease-in-out "></textarea>
+        </div>
+
+         
+            
+            
+        <div class="fixed w-full left-0 bottom-0 lg:relative bg-white justify-between border-t border-base-200 flex flex-col lg:flex-row gap-2 p-3 py-2.5 mt-6 dark:bg-base-800 dark:border-base-700 2xl:border-t-0! 2xl:bg-transparent! 2xl:px-0">
+            
+            
+            <button id="exchange-submit" type="submit" class="bg-primary-600 block border border-transparent cursor-pointer font-medium px-4 py-3 rounded text-white">
+        <span id="submit-text">Провести</span>
+
+        <span
+            id="submit-spinner"
+            class="hidden"
+        >
+            <svg
+                class="animate-spin inline-block mr-2 h-5 w-5"
+                viewBox="0 0 24 24"
+                fill="none"
+            >
+                <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                ></circle>
+
+                <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                ></path>
+            </svg>
+
+            Проводим...
+        </span>
+            </button>
+            
+            <a href="{% url 'admin:wholesale_wholesaleorder_changelist' %}"
+                class="rounded text-center px-4 py-3 border-base-600 bg-base-100 border dark:bg-base-700">
+                Отмена
+            </a>
+           
+        </div>
+    
+    </form>
+</div>
+</div>
+<div id="exchange-form-config" data-balance-url="{% url 'admin:wholesale_get_balance' %}" style="display:none;"></div>
+<div
+    id="exchange-loading"
+    class="hidden fixed inset-0 z-[9999] bg-white/80 dark:bg-base-900/80 backdrop-blur-xs flex items-center justify-center"
+>
+    <div class="rounded-xl shadow-2xl px-8 py-7 text-center">
+
+        <div class="flex justify-center mb-4">
+            <svg
+                class="animate-spin h-10 w-10 text-primary-600"
+                viewBox="0 0 24 24"
+                fill="none"
+            >
+                <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                ></circle>
+
+                <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                ></path>
+            </svg>
+        </div>
+
+        <div class="text-xl font-semibold text-gray-900 dark:text-white">
+            Проводим операцию
+        </div>
+
+        <div class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Пожалуйста, подождите...
+        </div>
+
+    </div>
+</div>
+<script src="{% static 'admin/js/exchange_form.js' %}?0.7"></script>
+
+{% endblock %}

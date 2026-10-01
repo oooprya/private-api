@@ -1,0 +1,135 @@
+:root{
+    --color-primary: #422ad5;
+    --color-primary-content: #e0e7ff;
+    --size: calc(.25rem*10);
+    --b-r: 5px;
+}
+.flex-t {
+    display: flex;
+    margin: 1rem;
+    gap: 2rem;
+}
+.btn-primary {
+    color: #fff;
+    background-color: var(--color-primary);
+    border: 1px solid var(--color-primary-content);
+}
+/* Красивая тень карточек */
+.card-soft {
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.05);
+}
+
+/* Анимация кнопок */
+button {
+    transition: all 0.2s ease-in-out;
+}
+
+button:hover {
+    transform: translateY(-1px);
+}
+.btn {
+    padding: .7rem 1rem;
+    border: 1px solid #666;
+    border-radius: var(--b-r);
+}
+.btn-buy {
+    background-color: rgb(30, 175, 67);
+    color: #fff;
+    border-color: rgb(15, 146, 48);
+}
+.btn-sell{
+    background-color: rgb(207, 62, 36);
+        color: #fff;
+        border-color: rgb(177, 40, 16);
+}
+/* Баланс крупнее */
+.balance-amount {
+    font-size: 20px;
+    letter-spacing: 0.5px;
+}
+
+.side-panel {
+    position: sticky;
+    top: 20px;
+}
+.flex-form {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+#amount, #rate, .select {
+    appearance: none;
+    background-color: var(--color-base-100);
+    vertical-align: middle;
+    width: clamp(3rem, 20rem, 100%);
+    height: var(--size);
+    touch-action: manipulation;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    box-shadow: 0 1px var(--input-color) inset, 0 -1px oklch(100% 0 0 / calc(var(--depth) * .1)) inset;
+    background-image: linear-gradient(45deg, #0000 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, #0000 50%);
+    background-position: calc(100% - 20px) calc(1px + 50%), calc(100% - 16.1px) calc(1px + 50%);
+    background-repeat: no-repeat;
+    background-size: 4px 4px, 4px 4px;
+    border-start-start-radius: var(--join-ss, var(--radius-field));
+    border-start-end-radius: var(--join-se, var(--radius-field));
+    border-end-end-radius: var(--join-ee, var(--radius-field));
+    border-end-start-radius: var(--join-es, var(--radius-field));
+    flex-shrink: 1;
+    align-items: center;
+    gap: .375rem;
+    padding-inline: .75rem 1.75rem;
+    font-size: .875rem;
+    display: inline-flex;
+    position: relative;
+    overflow: hidden;
+    border: 1px solid #e5e7eb;
+}
+
+.flash-update {
+    animation: flashUpdate 0.8s ease-out;
+}
+
+@keyframes flashUpdate {
+    0% {
+        background-color: rgba(34, 197, 94, 0.25);
+    }
+
+    100% {
+        background-color: transparent;
+    }
+}
+
+@media screen and (max-width: 576px) {
+.result_orders_list{
+        overflow: auto;
+        height: calc(80vh - 70px);
+    }
+
+#balance-overlay {
+    background-color: hwb(0deg 0% 100% / 40%);
+}
+
+.translate-x-full {
+    display: block;
+    right: 5%;
+    position: absolute;
+    width: 90%;
+    top: 190px;
+}
+
+#balance-drawer {
+    top: 8vh;
+    right: 1rem;
+    position: fixed;
+    height: 84vh;
+    width: calc(85% - 2rem);
+}
+#close-balance {
+    position: absolute;
+    right: .5rem;
+    top: 0;
+    font-size: 2rem;
+}
+
+}

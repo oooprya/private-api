@@ -15,11 +15,12 @@
 # fi
 
 # Выполняем миграции
-python manage.py collectstatic --no-input --clear
-# python manage.py makemigrations
-# python manage.py migrate
+echo "Migrating..."
+
+# python manage.py migrate --no-input
+python manage.py collectstatic --no-input
+python manage.py makemigrations
+python manage.py migrate
 
 # Запускаем сервер
-
-# exec gunicorn base.wsgi:application  --bind 0.0.0.0:8000
-exec daphne -b 0.0.0.0 -p 8000 --proxy-headers base.asgi:application
+exec gunicorn base.wsgi:application --bind 0.0.0.0:8000

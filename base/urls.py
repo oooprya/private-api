@@ -22,5 +22,5 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include(api.urls)),
     path("sitemap.xml", sitemap, name="sitemap"),
+    path("", include("wholesale.urls")),
 ]
-
