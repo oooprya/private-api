@@ -115,6 +115,19 @@ class CartItem(models.Model):
 
     class Meta:
         ordering = ('currency',)
+
+    # def save(self, *args, **kwargs):
+        # creating = not bool(self.id)
+        # if self.buy != self.__buy or self.sell != self.__sell:
+        #     creating = True
+        # result = super().save(*args, **kwargs)
+        # if creating:
+        #     cache.delete(settings.CACHE_ALL_CURRENCYS)
+        # return result
+
+
+    class Meta:
+        unique_together = ("exchanger", "currency")
         verbose_name = "Курс валют"
         verbose_name_plural = "Курсы валют"
 
@@ -157,6 +170,7 @@ class Orders(models.Model):
     buy_or_sell = models.CharField(max_length=8, blank=True)
     exchange_rate = models.DecimalField(
         "Курс", decimal_places=4, max_digits=10, )
+        "Курс", decimal_places=2, max_digits=10, )
     order_sum = models.IntegerField("Сумма заказа", default=100)
     created_at = models.DateTimeField(default=timezone.now)
 

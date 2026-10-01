@@ -169,6 +169,7 @@ def sitemap(request):
         </url>
         <url>
             <loc>https://exprivat.com.ua/kurs/gbp-usd</loc>
+            <loc>https://www.exprivat.com.ua/</loc>
             <lastmod>{now}</lastmod>
             <changefreq>hourly</changefreq>
             <priority>1.0</priority>
@@ -184,3 +185,4 @@ def sitemap(request):
 #     })
 
 #     return context
+    return HttpResponse(xml, content_type="application/xml")
