@@ -43,6 +43,36 @@ def get_node_balances(node_id, staff=None, opened_at=None):
         if b.currency.code and b.currency.code.lower().startswith("usd"):
             usd_total += b.balance
 
+    # Попробуем посчитать UAH-эквивалент всех балансов (нужен для диаграммы)
+    try:
+        rates_qs = CartItem.objects.filter(
+            exchanger_id=1).values('currency__code', 'sell')
+        from decimal import InvalidOperation
+        rates = {}
+        for it in rates_qs:
+            code = (it.get('currency__code') or '').lower()
+            try:
+                rates[code] = Decimal(it.get('sell') or 0)
+            except (InvalidOperation, TypeError):
+                rates[code] = Decimal('0')
+
+        rates['uah'] = Decimal('1.0')
+        rates['usdold'] = rates.get('usd', Decimal('0.0'))
+
+        total_uah = Decimal('0')
+        usd_uah = Decimal('0')
+        for b in balances:
+            code = (b.currency.code or '').lower()
+            rate = rates.get(code, rates.get('usd', Decimal('0')))
+            amount = Decimal(b.balance or 0)
+            total_uah += amount * rates.get(code, Decimal('0'))
+            # if this is a USD-like currency, add to usd_uah using its specific rate
+            if code.startswith('usd'):
+                usd_uah += amount * rate
+    except Exception:
+        total_uah = Decimal('0')
+        usd_uah = Decimal('0')
+
     # ✅ Добавляем данные по сделкам и прибыли для данного узла
     today = timezone.localdate()
     node_stats = compute_node_stats(node_id, today)
@@ -54,6 +84,8 @@ def get_node_balances(node_id, staff=None, opened_at=None):
         "opened_at": opened_at_str,
         "balances": result,
         "usd_total": float(usd_total),
+        "total_uah": float(total_uah),
+        "usd_uah": float(usd_uah),
         "deals_count": node_stats.get('deals_count', 0),
         "profit": node_stats.get('profit', 0),
     }
@@ -319,10 +351,107 @@ class BalanceService:
             # keep fallback profit_total from orders
             pass
 
+        # Инициализируем дефолтное значение profit_usd на случай ошибки во втором блоке
+        profit_usd = Decimal('0')
+
+        # additionally compute UAH-equivalents and profit_usd
+        try:
+            rates_qs = CartItem.objects.filter(exchanger_id=1).values(
+                'currency__code', 'sell', 'buy')
+            rates = {}
+            usd_buy_rate = Decimal('1.0')
+            from decimal import InvalidOperation
+            for it in rates_qs:
+                code = (it.get('currency__code') or '').lower()
+                try:
+                    rates[code] = Decimal(it.get('sell') or 0)
+                except (InvalidOperation, TypeError):
+                    rates[code] = Decimal('0')
+
+                # Сохраняем курс покупки для USD
+                if code == 'usd':
+                    try:
+                        usd_buy_rate = Decimal(it.get('buy') or 1)
+                    except (InvalidOperation, TypeError):
+                        usd_buy_rate = Decimal('1.0')
+
+            rates['uah'] = Decimal('1.0')
+            rates['usdold'] = rates.get('usd', Decimal('0.0'))
+
+            # ─── РАСЧЕТ ПРОФИТА В USD ─────────────────────────────────────
+            usd_sell_rate = rates.get('usd', Decimal('0'))
+            if usd_sell_rate > 0:
+                profit_usd = profit_total / usd_sell_rate
+            else:
+                profit_usd = Decimal('0')
+            # ──────────────────────────────────────────────────────────────
+
+            total_uah = Decimal('0')
+            usd_uah = Decimal('0')
+            currency_breakdown = {}
+
+            # ❌ Список валют, которые НЕ должны попасть на график
+            excluded_from_totals = ['usd', 'usdnew', 'usdold']
+
+            for b in CashBalance.objects.select_related('currency').all():
+                code = (b.currency.code or '').lower()
+                amt = Decimal(b.balance or 0)
+
+                # Пропускаем нулевые балансы
+                if amt == 0:
+                    continue
+
+                rate = rates.get(code, Decimal('0'))
+                uah_equiv = amt * rate
+
+                total_uah += uah_equiv
+                if code.startswith('usd'):
+                    usd_uah += uah_equiv
+
+                # Рассчитываем USD-эквивалент
+                if usd_buy_rate > 0:
+                    usd_equiv = uah_equiv / usd_buy_rate
+                else:
+                    usd_equiv = Decimal('0')
+
+                # 📊 Формируем breakdown
+                if code:
+                    # 👉 Делаем ключ БОЛЬШИМ (UAH, EUR) для совпадения с JS
+                    code_upper = code.upper()
+                    # 👉 Достаем short_name
+                    display_name = b.currency.short_name if b.currency.short_name else code_upper
+
+                    if code_upper not in currency_breakdown:
+                        currency_breakdown[code_upper] = {
+                            'name': display_name,
+                            'amount': Decimal('0'),
+                            'uah_equiv': Decimal('0'),
+                            'usd_equiv': Decimal('0')
+                        }
+
+                    currency_breakdown[code_upper]['amount'] += amt
+                    currency_breakdown[code_upper]['uah_equiv'] += uah_equiv
+                    currency_breakdown[code_upper]['usd_equiv'] += usd_equiv
+
+        except Exception as e:
+            print(f"WS Balance Error: {e}")
+            total_uah = Decimal('0')
+            usd_uah = Decimal('0')
+            currency_breakdown = {}
+
         return {
             'uah': float(uah_total),
             'usd': float(usd_total),
+            'total_uah': float(total_uah),
+            'usd_uah': float(usd_uah),
+            'currency_breakdown': {k: {
+                'name': v['name'],
+                'amount': float(v['amount']),
+                'uah_equiv': float(v['uah_equiv']),
+                'usd_equiv': float(v['usd_equiv'])
+            } if isinstance(v, dict) else float(v) for k, v in currency_breakdown.items()},
             'profit': float(profit_total),
+            'profit_usd': float(profit_usd),
             'deals_count': int(deals_count),
             'total_bought': float(total_bought),
             'total_sold': float(total_sold),
@@ -549,17 +678,17 @@ class BalanceService:
 
             if order.order_type == "buy":
                 # Касса КУПИЛА quote (EUR): +amount, ОТДАЛА base (USD): -amount_base
-                if base_balance.balance < amount_base:
-                    raise ValidationError(
-                        f"Недостаточно {base_currency.code} в кассе")
+                # if base_balance.balance < amount_base:
+                #     raise ValidationError(
+                #         f"Недостаточно {base_currency.code} в кассе")
 
                 quote_balance.balance += amount
                 base_balance.balance -= amount_base
 
             elif order.order_type == "sell":
                 # Касса ПРОДАЛА quote (EUR): -amount, ПОЛУЧИЛА base (USD): +amount_base
-                if quote_balance.balance < amount:
-                    raise ValidationError(f"Недостаточно {quote_code} в кассе")
+                # if quote_balance.balance < amount:
+                #     raise ValidationError(f"Недостаточно {quote_code} в кассе")
 
                 quote_balance.balance -= amount
                 base_balance.balance += amount_base
@@ -624,8 +753,8 @@ class BalanceService:
             # =========================
             if order.order_type == "buy":
 
-                if uah_balance.balance < amount_base:
-                    raise ValidationError("Недостаточно гривны в кассе")
+                # if uah_balance.balance < amount_base:
+                #     raise ValidationError("Недостаточно гривны в кассе")
 
                 currency_balance.balance += amount
                 uah_balance.balance -= amount_base
@@ -637,8 +766,8 @@ class BalanceService:
             # =========================
             elif order.order_type == "sell":
 
-                if currency_balance.balance < amount:
-                    raise ValidationError("Недостаточно валюты в кассе")
+                # if currency_balance.balance < amount:
+                #     raise ValidationError("Недостаточно валюты в кассе")
 
                 currency_balance.balance -= amount
                 uah_balance.balance += amount_base

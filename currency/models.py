@@ -1,6 +1,8 @@
+from django.conf import settings
+from django.core.cache import cache
 from django.db import models
 from django.utils import timezone
-from decimal import Decimal
+from django.utils.text import slugify
 
 
 class Users(models.Model):
@@ -9,8 +11,9 @@ class Users(models.Model):
         ('moderator', 'Модератор'),
         ('client', 'Клієнт'),
     )
-    chat_id = models.IntegerField(blank=True)
+    chat_id = models.CharField(max_length=12, unique=True)
     chat_id_name = models.CharField(max_length=150, blank=True)
+    clients_telephone = models.CharField(max_length=16, blank=True)
     role = models.CharField(
         max_length=10, choices=ROLE_CHOICES, default='user')
 
@@ -18,80 +21,144 @@ class Users(models.Model):
         verbose_name = "Пользователь"
         verbose_name_plural = "Пользователи"
 
+    def __str__(self):
+        return f'{self.chat_id_name}'
 
 
 class Currency(models.Model):
-    name = models.CharField('Валюта', max_length=30, default='usd', unique = True)
+    name = models.CharField('Валюта',
+                            max_length=30,
+                            default='usd',
+                            unique=True)
+    short_name = models.CharField('Короткое название',
+                                  max_length=10,
+                                  blank=True,
+                                  help_text="Например: $, €, грн")
+
+    is_cross_currency = models.BooleanField('Кросс-валюта',
+                                            default=False,
+                                            help_text="Использовать ли эту валюту для кросс-курсов")
     code = models.CharField(max_length=7)
+    is_visible = models.BooleanField('Показывать на сайте', default=True)
+    sort_order = models.PositiveIntegerField('Порядок сортировки', default=0)
+
+    class Meta:
+        ordering = ['sort_order', 'name']
+        verbose_name = 'Валюта'
+        verbose_name_plural = 'Валюты'
 
     def __str__(self):
         return f'{self.name}'
 
-    class Meta:
-        ordering = ('id',)
-        verbose_name = "Валюта"
-        verbose_name_plural = "Валюты"
+    def delete(self, *args, **kwargs):
+        cache.delete(settings.CACHE_ALL_CURRENCY)
+        super().delete(*args, **kwargs)
+
+    def save(self, *args, **kwargs):
+        result = super().save(*args, **kwargs)
+        cache.delete(settings.CACHE_ALL_CURRENCY)
+        cache.delete(settings.CACHE_ALL_CURRENCYS)
+        return result
 
 
 class Exchanger(models.Model):
     address = models.CharField(max_length=80)
+    slug = models.SlugField(max_length=120, unique=True,
+                            blank=True, null=True,)
     address_map = models.CharField(max_length=60, blank=True)
     working_hours = models.CharField(max_length=255, blank=True)
+    # график работы
+    work_start = models.TimeField(null=True,
+                                  blank=True)
+    work_end = models.TimeField(null=True,
+                                blank=True)
     created_at = models.DateTimeField(default=timezone.now)
     updatedAt = models.DateTimeField(auto_now=True)
-
-    def __str__(self) -> str:
-        return self.address
 
     class Meta:
         ordering = ('id',)
         verbose_name = "Обменик"
         verbose_name_plural = "Все Обменики"
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__address = self.address
+
+    def delete(self, *args, **kwargs):
+        cache.delete(settings.CACHE_ALL_EXCHANGERS)
+        super().delete(*args, **kwargs)
+
+    def save(self, *args, **kwargs):
+        creating = not bool(self.id)
+
+        # генерим slug только при создании или изменении адреса
+        if creating or not self.slug:
+            self.slug = slugify(self.address)
+
+        result = super().save(*args, **kwargs)
+        cache.delete(settings.CACHE_ALL_EXCHANGERS)
+        return result
+
+    def __str__(self) -> str:
+        return self.address
+
+
 class CartItem(models.Model):
 
     exchanger = models.ForeignKey(Exchanger, on_delete=models.CASCADE)
     currency = models.ForeignKey(Currency, on_delete=models.CASCADE)
 
-    buy = models.DecimalField("Покупка", decimal_places=3, max_digits=10,  blank=True)
-    sell = models.DecimalField("Продажа", decimal_places=3, max_digits=10, blank=True)
+    buy = models.CharField("Покупка", max_length=10)
+    sell = models.CharField("Продажа", max_length=10)
     sum = models.IntegerField("Сумма от 100 до 10000", default=100)
-
     updatedAt = models.DateTimeField(auto_now=True)
 
-    def save(self, *args, **kwargs):
-        if self.buy is not None:
-            rounded_buy = self.buy.quantize(Decimal("0.001"))  # Округление
-            self.buy = rounded_buy if rounded_buy * 1 != 0 else Decimal(int(rounded_buy))  # Убираем .00
-
-        super().save(*args, **kwargs)
-
     class Meta:
+        ordering = ('currency',)
         verbose_name = "Курс валют"
         verbose_name_plural = "Курсы валют"
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.__buy = self.buy
+        self.__sell = self.sell
+
+    def save(self, *args, **kwargs):
+        creating = not bool(self.id)
+        result = super().save(*args, **kwargs)
+
+        # Если курс изменился
+        if self.buy != self.__buy or self.sell != self.__sell or creating:
+            cache.delete(settings.CACHE_ALL_CURRENCYS)
+        return result
 
     def __str__(self) -> str:
         return f' Обменик: {self.exchanger.address} '
 
+
 class Orders(models.Model):
 
     STATUS_CHOICES = (
-    ('ordersent', 'Отправлен'),
-    ('accepted', 'Принятый'),
-    ('completed', 'Выполнен'),
-    ('new', 'Новый'),
-    ('cancel', 'Сancel'),
+        ('ordersent', 'Отправлен'),
+        ('accepted', 'Принятый'),
+        ('completed', 'Выполнен'),
+        ('new', 'Новый'),
+        ('cancel', 'Сancel'),
+        ('noshow', 'Не пришел'),
     )
 
-    status = models.CharField(choices=STATUS_CHOICES, max_length=10, default='new')
-    clients_telephone = models.CharField(max_length = 16, help_text='+38096-123-45-67')
-    address_exchanger = models.CharField('Адрес Брони', max_length=100, blank=True)
+    status = models.CharField(choices=STATUS_CHOICES,
+                              max_length=10, default='new')
+    clients_telephone = models.CharField(
+        max_length=16, help_text='+38096-123-45-67')
+    address_exchanger = models.CharField(
+        'Адрес Брони', max_length=100, blank=True)
     currency_name = models.CharField('Валюта', max_length=40, blank=True)
     buy_or_sell = models.CharField(max_length=8, blank=True)
-    exchange_rate = models.DecimalField("Курс", decimal_places=2, max_digits=10, )
+    exchange_rate = models.DecimalField(
+        "Курс", decimal_places=4, max_digits=10, )
     order_sum = models.IntegerField("Сумма заказа", default=100)
     created_at = models.DateTimeField(default=timezone.now)
-
 
     class Meta:
         ordering = ('-created_at',)

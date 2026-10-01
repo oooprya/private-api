@@ -1,10 +1,13 @@
+# prod
 from datetime import date, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from django.db.models import Sum, Count
 from django.utils import timezone
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect
 from django.core.exceptions import ValidationError
+import json
+import logging
 from django.db import transaction
 from django.views.decorators.http import require_POST
 from django.contrib.auth.decorators import login_required
@@ -17,9 +20,75 @@ from currency.models import Currency, CartItem
 from .models import (
     CashNode,
     CashBalance,
+    CashMovement,
     WholesaleOrder,
     Shift,
 )
+
+logger = logging.getLogger(__name__)
+
+
+def _parse_dashboard_cell_value(value):
+    if value in (None, "", "—"):
+        return None
+    if isinstance(value, (int, float, Decimal)):
+        return float(value)
+    text = str(value).strip()
+    if not text or text == "—":
+        return None
+    cleaned = text.replace(" ", "").replace(",", ".")
+    try:
+        return float(cleaned)
+    except ValueError:
+        return None
+
+
+def _format_dashboard_value(value):
+    if value is None:
+        return "—"
+    return f"{value:,.0f}".replace(",", " ")
+
+
+def build_dashboard_view_rows(rows, view_mode="cash"):
+    if view_mode != "exchange":
+        return rows
+
+    grouped = {}
+
+    for row in rows:
+        cells = row.get("cells") or []
+        if not cells:
+            continue
+
+        exchange_point_id = row.get("exchange_point_id")
+        exchange_point_name = row.get("exchange_point_name") or "Без точки"
+        key = (exchange_point_id, exchange_point_name)
+
+        if key not in grouped:
+            grouped[key] = {
+                "node_id": None,
+                "exchange_point_id": exchange_point_id,
+                "exchange_point_name": exchange_point_name,
+                "cells": [exchange_point_name],
+                "is_group": True,
+            }
+
+        bucket = grouped[key]
+        while len(bucket["cells"]) < len(cells):
+            bucket["cells"].append("—")
+
+        for idx in range(1, len(cells)):
+            current_value = _parse_dashboard_cell_value(bucket["cells"][idx])
+            incoming_value = _parse_dashboard_cell_value(cells[idx])
+            if incoming_value is None:
+                continue
+
+            if current_value is None:
+                current_value = 0
+
+            bucket["cells"][idx] = _format_dashboard_value(current_value + incoming_value)
+
+    return list(grouped.values())
 
 
 @require_POST
@@ -56,6 +125,140 @@ def switch_active_node_view(request):
     request.session["selected_node_id"] = node.pk
 
     return JsonResponse({"success": True, "selected_node_id": node.pk, "node_name": str(node)})
+
+
+@require_POST
+@login_required
+def collect_cash_view(request):
+    """Move cash from a 'desk' node to a 'safe' or 'car' node.
+
+    Expected POST params:
+    - source_node_id
+    - target_node_id
+    - currency_id
+    - amount
+    - comment (optional)
+
+    Operation is atomic and uses select_for_update on balances.
+    """
+    data = request.POST
+    source_id = data.get("source_node_id")
+    target_id = data.get("target_node_id")
+    currency_id = data.get("currency_id")
+    amount_raw = data.get("amount")
+    comment = data.get("comment", "")
+
+    # Basic validation
+    if not all([source_id, target_id, currency_id, amount_raw]):
+        return JsonResponse({"success": False, "error": "missing required parameters"}, status=400)
+
+    try:
+        source_pk = int(source_id)
+        target_pk = int(target_id)
+        currency_pk = int(currency_id)
+    except (TypeError, ValueError):
+        return JsonResponse({"success": False, "error": "invalid id(s) provided"}, status=400)
+
+    try:
+        amount = Decimal(str(amount_raw))
+    except (InvalidOperation, TypeError):
+        return JsonResponse({"success": False, "error": "invalid amount"}, status=400)
+
+    if amount <= 0:
+        return JsonResponse({"success": False, "error": "amount must be positive"}, status=400)
+
+    # Quantize to cents
+    amount = amount.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    # Resolve objects
+    source_node = get_object_or_404(CashNode, pk=source_pk, is_active=True)
+    target_node = get_object_or_404(CashNode, pk=target_pk, is_active=True)
+    currency = get_object_or_404(Currency, pk=currency_pk)
+
+    # Business rules: source must be desk, target must be safe or car
+    if source_node.node_type != "desk":
+        return JsonResponse({"success": False, "error": "source node must be a desk"}, status=400)
+    if target_node.node_type not in ("safe", "car"):
+        return JsonResponse({"success": False, "error": "target node must be a safe or car"}, status=400)
+
+    staff = getattr(request.user, "staffprofile", None)
+    if not staff:
+        return JsonResponse({"success": False, "error": "staff profile not found"}, status=403)
+
+    # Permission check: staff must have access to the source node (or be superuser)
+    if not (request.user.is_superuser or staff.nodes.filter(pk=source_node.pk).exists()):
+        return JsonResponse({"success": False, "error": "no permission for source node"}, status=403)
+
+    # Perform atomic move using row locking
+    try:
+        with transaction.atomic():
+            src_qs = CashBalance.objects.select_for_update().filter(
+                node=source_node, currency=currency)
+            tgt_qs = CashBalance.objects.select_for_update().filter(
+                node=target_node, currency=currency)
+
+            source_balance = src_qs.first()
+            if not source_balance:
+                return JsonResponse({"success": False, "error": "source has no balance for this currency"}, status=400)
+
+            if source_balance.balance < amount:
+                return JsonResponse({"success": False, "error": "insufficient funds"}, status=400)
+
+            target_balance = tgt_qs.first()
+            if not target_balance:
+                # create target balance row if absent
+                target_balance = CashBalance.objects.create(
+                    node=target_node, currency=currency, balance=Decimal("0.00"))
+
+            # Update balances
+            source_balance.balance = (
+                source_balance.balance - amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            source_balance.save(update_fields=["balance"])
+
+            target_balance.balance = (
+                target_balance.balance + amount).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            target_balance.save(update_fields=["balance"])
+
+            # Create movement records
+            CashMovement.objects.create(
+                node=source_node,
+                currency=currency,
+                movement_type="collect",
+                amount=amount,
+                comment=comment,
+            )
+
+            CashMovement.objects.create(
+                node=target_node,
+                currency=currency,
+                movement_type="in",
+                amount=amount,
+                comment=comment,
+            )
+
+            # Create wholesale order linked to the currently open shift (if any)
+            shift = Shift.objects.filter(staff=staff, is_open=True).first()
+            WholesaleOrder.objects.create(
+                shift=shift,
+                currency=currency,
+                order_type="collect",
+                amount_currency=amount,
+                comment=comment,
+            )
+
+    except Exception as exc:
+        logger.exception("collect_cash_view failed")
+        return JsonResponse({"success": False, "error": "internal error"}, status=500)
+
+    return JsonResponse({
+        "success": True,
+        "amount": str(amount),
+        "source_balance": str(source_balance.balance),
+        "target_balance": str(target_balance.balance),
+    })
+
+
+logger = logging.getLogger(__name__)
 
 
 @transaction.atomic
@@ -139,7 +342,7 @@ def dashboard_balances_api(request):
     return JsonResponse({"balances": list(balances), "global_totals": global_totals})
 
 
-def build_unfold_table(balances, selected_date=None):
+def build_unfold_table(balances, selected_date=None, view_mode="cash"):
 
     # ─────────────────────────────
     # 📊 1. Собираем все валюты + totals
@@ -166,7 +369,7 @@ def build_unfold_table(balances, selected_date=None):
         code = c.code.lower()
 
         # Определяем, что выводить в заголовок (short_name или код)
-        name_to_show = c.short_name if c.short_name else c.code
+        name_to_show = c.short_name if c.short_name else c.code.upper()
 
         # ❌ убираем валюты которых нет
         if currency_totals.get(code, 0) == 0:
@@ -220,12 +423,13 @@ def build_unfold_table(balances, selected_date=None):
                 'profit_sum': r.get('profit_sum') or 0,
             }
 
-        # Prepare currency sell rates to convert snapshots to UAH (like admin)
+        # Prepare currency sell rates and USD buy rate
         try:
             rates_qs = CartItem.objects.filter(
-                exchanger_id=1).values('currency__code', 'sell')
+                exchanger_id=1).values('currency__code', 'sell', 'buy')
             rates = {}
-            from decimal import InvalidOperation
+            usd_buy_rate = Decimal('1.0')  # По умолчанию
+            
             for it in rates_qs:
                 code = (it.get('currency__code') or '').lower()
                 try:
@@ -233,10 +437,18 @@ def build_unfold_table(balances, selected_date=None):
                 except (InvalidOperation, TypeError):
                     rates[code] = Decimal('0')
 
+                # Сохраняем курс покупки для USD
+                if code == 'usd':
+                    try:
+                        usd_buy_rate = Decimal(it.get('buy') or 1)
+                    except (InvalidOperation, TypeError):
+                        pass
+
             rates['uah'] = Decimal('1.0')
             rates['usdold'] = rates.get('usd', Decimal('0.0'))
         except Exception:
             rates = None
+            usd_buy_rate = Decimal('1.0')
 
     # ─────────────────────────────
     # 📄 5. ROWS
@@ -335,8 +547,12 @@ def build_unfold_table(balances, selected_date=None):
 
         rows.append({
             "node_id": node["node_id"],
+            "exchange_point_id": getattr(node.get("exchange_point"), "id", None),
+            "exchange_point_name": str(node.get("exchange_point") or ""),
             "cells": row,
         })
+
+    rows = build_dashboard_view_rows(rows, view_mode=view_mode)
 
     totals_row = ["ИТОГО"]
 
@@ -366,12 +582,48 @@ def build_unfold_table(balances, selected_date=None):
         "cells": totals_row,
     })
 
+    # Рассчитываем эквиваленты валют в UAH и USD для круговой диаграммы
+    currency_breakdown = {}
+    if rates is not None:
+        for col in final_columns:
+            if col == "usd_total":
+                continue
+
+            # Считаем сырую сумму по этой валюте во всех кассах
+            raw_total = sum(
+                next((b["amount"]
+                     for b in n["balances"] if b["currency"] == col), 0)
+                for n in balances
+            )
+
+            if raw_total > 0:
+                rate = rates.get(col.lower(), Decimal('0'))
+                uah_equiv = Decimal(raw_total) * rate
+
+                # Считаем Эквивалент в долларе (UAH эквивалент / курс покупки USD)
+                if usd_buy_rate > 0:
+                    usd_equiv = uah_equiv / usd_buy_rate
+                else:
+                    usd_equiv = Decimal('0')
+
+                if uah_equiv > 0 or col.lower() == 'uah':
+                    # Теперь мы передаем не просто цифру, а объект со всеми данными
+                    currency_breakdown[col.upper()] = {
+                        "name": display_names.get(col.lower(), col.upper()),
+                        "amount": float(raw_total),
+                        "uah_equiv": float(uah_equiv),
+                        "usd_equiv": float(usd_equiv)
+                    }
+    else:
+        currency_breakdown = {}
+
     return {
         "headers": headers,
         "rows": rows,
         "columns": final_columns,
         "striped": True,
         "hoverable": True,
+        "currency_breakdown": json.dumps(currency_breakdown)
     }
 
 
@@ -398,21 +650,30 @@ def dashboard_callback(request, context):
     prev_date = selected_date - timedelta(days=1)
     next_date = selected_date + timedelta(days=1)
 
+    dashboard_view = request.GET.get("view", "cash")
+    if dashboard_view not in {"cash", "exchange"}:
+        dashboard_view = "cash"
+
     dashboard = BalanceService.get_dashboard_balances(selected_date)
     context["selected_date"] = selected_date
     context["today"] = today
     context["prev_date"] = prev_date
     context["next_date"] = next_date
+    context["dashboard_view"] = dashboard_view
 
     if user.is_superuser or is_senior:
-        table = build_unfold_table(dashboard, selected_date)
+        table = build_unfold_table(dashboard, selected_date, view_mode=dashboard_view)
         context["dashboard_balances"] = table
         # Global aggregated totals for senior cards
         try:
-            context["global_totals"] = BalanceService.compute_global_totals(
-                selected_date)
+            global_totals = BalanceService.compute_global_totals(selected_date)
+            # Добавляем наш breakdown в глобальные итоги
+            global_totals['currency_breakdown'] = table.get(
+                "currency_breakdown", "{}")
+            context["global_totals"] = global_totals
         except Exception:
-            context["global_totals"] = {"uah": 0, "usd": 0, "profit": 0}
+            context["global_totals"] = {
+                "uah": 0, "usd": 0, "profit": 0, "currency_breakdown": "{}"}
         context["is_senior"] = is_senior
         return context
 

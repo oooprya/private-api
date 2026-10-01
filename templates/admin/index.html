@@ -97,7 +97,21 @@ if ("serviceWorker" in navigator) {
             </a>
         </div>
     
-        <!-- Summary cards: deals, bought, sold, profit (visible to senior users) -->
+        
+        <div class="flex flex-col md:flex-row items-center justify-center gap-1">
+    
+            <div class="relative w-64 h-64 flex-shrink-0">
+                <canvas id="chart-node-global"></canvas>
+                
+                <div class="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+                    <span id="global-chart-total-text" class="text-2xl font-extrabold text-gray-900 dark:text-white">—</span>
+                    <span class="text-gray-400 text-sm font-medium">Гривна (экв.)</span>
+                </div>
+            </div>
+
+            <div id="global-chart-legend" class="grid grid-cols-1 gap-0 lg:grid-cols-3 lg:gap-6 gap-0 w-full md:w-auto min-w-[200px]"> </div>
+
+        </div>
         
 
         <!-- Summary cards: deals, bought, sold, profit (visible to senior users) -->
@@ -119,7 +133,23 @@ if ("serviceWorker" in navigator) {
 
             <div class=" border border-green-700 rounded p-2 dark:bg-base-800 text-center">
                 <div class="text-sm text-gray-500">{% if selected_date == today %}Текущая прибыль{% else %}Общая прибыль{% endif %}</div>
-                <div id="global-profit" class="text-2xl font-bold text-green-700">{% if global_totals %}{{ global_totals.profit|floatformat:0 }}{% else %}0{% endif %}</div>
+                <div id="global-profit" class="text-2xl font-bold text-green-700">{% if global_totals %}${{ global_totals.profit_usd|floatformat:0 }}{% else %}0{% endif %}</div>
+            </div>
+        </div>
+
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+            <div class="inline-flex rounded-full border border-base-300 bg-white p-1 shadow-sm dark:border-base-700 dark:bg-base-800">
+                <a href="?date={{ selected_date|date:'Y-m-d' }}&view=cash"
+                   class="rounded-full px-3 py-1.5 text-sm font-medium transition-colors {% if dashboard_view == 'cash' %}bg-primary-600 text-white shadow-sm{% else %}text-gray-600 hover:text-primary-600 dark:text-gray-300 dark:hover:text-primary-400{% endif %}">
+                    💰 Кассы
+                </a>
+                <a href="?date={{ selected_date|date:'Y-m-d' }}&view=exchange"
+                   class="rounded-full px-3 py-1.5 text-sm font-medium transition-colors {% if dashboard_view == 'exchange' %}bg-primary-600 text-white shadow-sm{% else %}text-gray-600 hover:text-primary-600 dark:text-gray-300 dark:hover:text-primary-400{% endif %}">
+                    🏢 Обменники
+                </a>
+            </div>
+            <div class="text-xs font-medium uppercase tracking-[0.2em] text-gray-400 dark:text-base-500">
+                {% if dashboard_view == 'exchange' %}Агрегация по обменникам{% else %}Детально по кассам{% endif %}
             </div>
         </div>
 
@@ -141,13 +171,16 @@ if ("serviceWorker" in navigator) {
 
                     <tbody>
                         {% for row_obj in dashboard_balances.rows %}
-                            <tr class="border-b hover:bg-gray-50 dark:hover:bg-base-900">
+                            <tr class="border-b hover:bg-gray-50 dark:hover:bg-base-900"
+                                {% if row_obj.node_id %}data-node="{{ row_obj.node_id }}"{% endif %}
+                                {% if row_obj.exchange_point_id %}data-exchange-point-id="{{ row_obj.exchange_point_id }}"{% endif %}
+                                {% if row_obj.exchange_point_name %}data-exchange-point-name="{{ row_obj.exchange_point_name }}"{% endif %}>
 
                                 {% for cell in row_obj.cells %}
                                     {% if forloop.first %}
-                                        <td class="sticky inset-0 p-0 whitespace-nowrap font-medium">
+                                        <td class="sticky inset-0 p-0 whitespace-nowrap bg-white dark:bg-base-800 font-medium">
                                             {% if row_obj.node_id %}
-                                                <a href="{% url 'admin:wholesale_wholesaleorder_changelist' %}?shift__node__id={{ row_obj.node_id }}"
+                                                <a href="{% url 'admin:wholesale_wholesaleorder_changelist' %}?shift__node__id={{ row_obj.node_id }}&date={{ selected_date|date:'Y-m-d' }}"
                                                    class="node-tab text-xs font-semibold  transition-colors
                                                            bg-white text-blue-600 border-gray-300 hover:border-primary-400
                                                            dark:bg-base-800 dark:text-gray-300 dark:border-base-600"
@@ -268,13 +301,10 @@ if ("serviceWorker" in navigator) {
                             </div>
 
                             {% endif %}
-                            
                        
                             
-                            
-                            
+                                          
                         {% endfor %}
-
                         
                     </div>
 
@@ -296,7 +326,331 @@ if ("serviceWorker" in navigator) {
 
 
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+
 <script>
+// Регистрируем плагин для процентов
+Chart.register(ChartDataLabels);
+
+const _charts = {};
+
+const currencyColors = {
+    'UAH': '#10B981',      
+    'USD': '#718574',      // серый
+    'USDNEW': '#0288D1',   // синий
+    'USDOLD': '#707070',   // фиолетовый
+    'EUR': '#C0CA33',      // зеленоватый
+    'PLN': '#14B8A6',      // teal
+    // Добавьте другие цвета при необходимости
+};
+
+function getColorForCurrency(code) {
+    return currencyColors[code.toUpperCase()] || '#5f769c';
+}
+
+function formatCompactNumber(value) {
+
+    value = Number(value || 0);
+
+    if (value >= 1000000000) {
+        return (value / 1000000000).toFixed(1) + 'B';
+    }
+
+    if (value >= 1000000) {
+        return (value / 1000000).toFixed(1) + 'M';
+    }
+
+    if (value >= 1000) {
+        return (value / 1000).toFixed(1) + 'K';
+    }
+
+    return new Intl.NumberFormat('uk-UA').format(value);
+}
+
+function createOrUpdateDonut(node_id, total_uah, currencyBreakdownRaw) {
+    const canvas = document.getElementById(`chart-node-${node_id}`);
+    const legendContainer = document.getElementById('global-chart-legend');
+    const totalTextEl = document.getElementById('global-chart-total-text');
+
+    if(!canvas) return;
+
+    let breakdown = {};
+    if (typeof currencyBreakdownRaw === 'string') {
+        try { breakdown = JSON.parse(currencyBreakdownRaw); } catch(e) {}
+    } else {
+        breakdown = currencyBreakdownRaw || {};
+    }
+
+    // Сортируем валюты от большей к меньшей (по UAH эквиваленту)
+    // Учитываем обратную совместимость (если объект или просто число)
+    const sortedData = Object.entries(breakdown)
+        .map(([currency, info]) => {
+            let uah_equiv = typeof info === 'object' ? info.uah_equiv : info;
+            return {
+                currency,
+                info,
+                uah_equiv
+            };
+        })
+        .sort((a, b) => b.uah_equiv - a.uah_equiv)
+        .filter(item => item.uah_equiv > 0);
+
+    const labels = sortedData.map(item => item.currency);
+    const data = sortedData.map(item => item.uah_equiv);
+    const colors = labels.map(label => getColorForCurrency(label));
+    
+    const sumTotal = data.reduce((a, b) => a + b, 0);
+
+    // Обновляем текст по центру (в миллионах)
+    if (totalTextEl) {
+        totalTextEl.innerText = formatCompactNumber(sumTotal);
+    }
+
+    // Рендерим новую детализированную легенду
+    if (legendContainer) {
+        legendContainer.innerHTML = '';
+        sortedData.forEach(item => {
+            const { currency, info, uah_equiv } = item;
+
+            // Вместо того чтобы просто писать ${currency}, используем пришедшее имя
+            const displayName = info.name || currency;
+            // 1. Считаем процент числом для проверки
+            const percentValue = (uah_equiv / sumTotal) * 100;
+
+            // 2. Условие: если меньше или равно 2%, пропускаем эту валюту
+            if (percentValue <= 2) {
+                return; // Пропустить (аналог continue в forEach)
+            }
+            const color = getColorForCurrency(currency);
+            
+            // Вытаскиваем значения. Защита, если с WS придет старый формат.
+            let amount = typeof info === 'object' ? info.amount : info;
+            let usd_equiv = typeof info === 'object' ? info.usd_equiv : 0;
+
+            // Расчет процента от общего баланса
+            // const percent = ((uah_equiv / sumTotal) * 100).toFixed(0) + '%';
+            const percent = percentValue.toFixed(0) + '%';
+            
+            // Форматируем суммы
+            const rawAmountFmt = formatCompactNumber(amount);
+            const uahEquivFmt = formatCompactNumber(uah_equiv);
+            const usdEquivFmt = formatCompactNumber(usd_equiv);
+            
+            // Формируем нижнюю строку в зависимости от типа валюты
+            let subTextHtml = '';
+            if (currency === 'UAH') {
+                subTextHtml = `<span class="text-[#0288D1]" style="color: #0288D1;">$${usdEquivFmt}</span>`;
+            } else if (['USD', 'USDNEW', 'USDOLD'].includes(currency)) {
+                subTextHtml = ``;
+            } else {
+                subTextHtml = `<span class="text-[#10B981]" style="color: #10B981;">${uahEquivFmt} ₴</span> <span class="text-gray-400 font-normal">/</span> <span class="text-[#0288D1]" style="color: #0288D1;">$${usdEquivFmt}</span>`;
+            }
+
+            const itemHtml = `
+                <div class="flex items-center justify-between py-2">
+                    <div class="flex items-center gap-3">
+                        <span class="flex items-center justify-center px-2.5 py-0.5 rounded-full text-sm font-bold text-white min-w-[44px]" style="background-color: ${color};">
+                            ${percent}
+                        </span>
+                        <span class="font-bold text-gray-700 dark:text-gray-300 text-xl">${displayName}</span>
+                    </div>
+                    <div class="flex flex-col items-end">
+                        <span class="text-gray-800 dark:text-white text-2xl font-medium text-right">
+                            ${rawAmountFmt} ${currency === 'UAH' ? '₴' : ''}
+                        </span>
+                        <div class="text-base font-medium mt-0.5 text-right">
+                            ${subTextHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+            legendContainer.insertAdjacentHTML('beforeend', itemHtml);
+        });
+        // После рендера элементов добавим агрегированную строку "Общий $" сразу после UAH
+        try {
+            const usdAmountTotal = sortedData
+                .filter(d => (d.currency || '').toUpperCase().startsWith('USD'))
+                .reduce((s, i) => {
+
+                    const amount =
+                        typeof i.info === 'object'
+                            ? Number(i.info.amount || 0)
+                            : Number(i.info || 0);
+
+                    return s + amount;
+
+                }, 0);
+
+
+            const usdUahTotal = sortedData
+                .filter(d => (d.currency || '').toUpperCase().startsWith('USD'))
+                .reduce((s, i) => s + (i.uah_equiv || 0), 0);
+
+
+            const usdPercent =
+                sumTotal > 0
+                    ? ((usdUahTotal / sumTotal) * 100).toFixed(0)
+                    : 0;
+            const uahIndex = sortedData.findIndex(d => (d.currency || '').toUpperCase() === 'UAH');
+            const usdSum = sortedData
+                .filter(d => (d.currency || '').toUpperCase().startsWith('USD'))
+                .reduce((s, i) => s + (i.uah_equiv || 0), 0);
+            if (uahIndex !== -1 && usdSum > 0) {
+                const uahChild = legendContainer.children[uahIndex];
+                
+                const usdHtml = `
+                    <div class="flex items-center justify-between py-2">
+
+                        <div class="flex items-center gap-3">
+
+                            <span
+                                class="flex items-center justify-center px-2.5 py-0.5 rounded-full text-sm font-bold text-white min-w-[44px]"
+                                style="background-color:${getColorForCurrency('USD')};">
+
+                                ${usdPercent}%
+
+                            </span>
+
+                            <span class="font-bold text-gray-700 dark:text-gray-300 text-xl">
+                                Общий $
+                            </span>
+
+                        </div>
+
+                        <div class="flex flex-col items-end">
+
+                            <span class="text-gray-800 dark:text-white text-2xl font-medium text-right">
+                                ${formatCompactNumber(usdAmountTotal)}
+                            </span>
+
+
+                        </div>
+
+                    </div>
+                `;
+                if (uahChild && typeof uahChild.insertAdjacentHTML === 'function') {
+                    uahChild.insertAdjacentHTML('afterend', usdHtml);
+                } else {
+                    legendContainer.insertAdjacentHTML('beforeend', usdHtml);
+                }
+            }
+        } catch (e) {
+            // do not break legend rendering on error
+            console.warn('legend insert error', e);
+        }
+    }
+
+    const offsetArray = new Array(data.length).fill(0);
+    if (offsetArray.length > 0) offsetArray[0] = 0;
+
+    if(_charts[node_id]) {
+        _charts[node_id].data.labels = labels;
+        _charts[node_id].data.datasets[0].data = data;
+        _charts[node_id].data.datasets[0].backgroundColor = colors;
+        _charts[node_id].data.datasets[0].offset = offsetArray;
+        _charts[node_id].update();
+    } else {
+        const ctx = canvas.getContext('2d');
+        _charts[node_id] = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: labels,
+                datasets: [{
+                    data: data,
+                    backgroundColor: colors,
+                    borderWidth: 0,
+                    borderRadius: 10,
+                    spacing: 4,
+                    offset: offsetArray
+                }]
+            },
+            options: {
+                cutout: '55%',
+                layout: { padding: 15 },
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: { 
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                let val = new Intl.NumberFormat('uk-UA').format(context.raw);
+                                return ` ${context.label}: ${val} ₴`;
+                            }
+                        }
+                    },
+                    datalabels: {
+                        color: '#ffffff',
+                        font: { weight: 'bold', size: 14 },
+                        formatter: (value, ctx) => {
+                            let percentage = (value * 100 / sumTotal).toFixed(0) + "%";
+                            return (value * 100 / sumTotal) > 2 ? percentage : null; 
+                        }
+                    }
+                }
+            }
+        });
+    }
+}
+
+</script>
+
+<script>
+// Helper: update donut charts from websocket payloads (resilient)
+// Поддерживает расширенный формат: {amount, uah_equiv, usd_equiv}
+function tryUpdateDonutFromPayload(data){
+    try{
+        // Prefer server-provided global breakdown
+        const global = data.global_totals || data.globalTotals || null;
+        if(global && global.currency_breakdown){
+            const usd_uah = Number(global.usd_uah || global.total_uah || 0);
+            // Проверяем, является ли это JSON-строкой или уже объектом
+            let breakdownData = global.currency_breakdown;
+            if (typeof breakdownData === 'string') {
+                try { 
+                    breakdownData = JSON.parse(breakdownData); 
+                } catch(e) { 
+                    breakdownData = {};
+                }
+            }
+            createOrUpdateDonut('global', usd_uah, breakdownData);
+            return;
+        }
+
+        // Per-node breakdown in payload
+        if(data.currency_breakdown){
+            const usd_uah = Number(data.usd_uah || 0);
+            let breakdownData = data.currency_breakdown;
+            if (typeof breakdownData === 'string') {
+                try { 
+                    breakdownData = JSON.parse(breakdownData); 
+                } catch(e) { 
+                    breakdownData = {};
+                }
+            }
+            createOrUpdateDonut(data.node_id || 'global', usd_uah, breakdownData);
+            return;
+        }
+
+        // Fallback: any raw breakdown key
+        if(data.currency_breakdown_json){
+            const usd_uah = Number(data.usd_uah || 0);
+            let breakdownData = data.currency_breakdown_json;
+            if (typeof breakdownData === 'string') {
+                try { 
+                    breakdownData = JSON.parse(breakdownData); 
+                } catch(e) { 
+                    breakdownData = {};
+                }
+            }
+            createOrUpdateDonut(data.node_id || 'global', usd_uah, breakdownData);
+        }
+    }catch(e){
+        console.warn('tryUpdateDonutFromPayload error:', e);
+    }
+}
+
 const protocol = window.location.protocol === "https:" ? "wss://" : "ws://";
 
 const socket = new WebSocket(
@@ -316,6 +670,8 @@ socket.onmessage = function(event){
     updateCashier(data);
     updateNodeStats(data); 
     updateGlobalTotals(data);
+    // Обновляем диаграмму доли USD (если сервер прислал UAH-эквиваленты)
+    tryUpdateDonutFromPayload(data);
     
 } 
 
@@ -410,7 +766,6 @@ function updateUsd(data){
 }
 
 function updateCashier(data){
-    console.log("updateCashier:", data);
     const el = document.querySelector(
         `[data-node="${data.node_id}"][data-cashier]`
     );
@@ -557,6 +912,49 @@ function updateNodeStats(data){
     playSound();
 }
 </script>
+
+<script>
+// Инициализация графиков при загрузке страницы
+document.addEventListener("DOMContentLoaded", function() {
+    
+    // Функция для безопасного парсинга чисел из Django-шаблонов (учитывает запятые)
+    function parseLocalFloat(val) {
+        if (!val || val === 'None' || val === '') return 0;
+        return parseFloat(String(val).replace(',', '.')) || 0;
+    }
+
+    // 1. Инициализация глобального графика (если пользователь - senior)
+    {% if is_senior and global_totals %}
+        // Parse currency breakdown from template
+        const breakdownStr = '{{ global_totals.currency_breakdown|escapejs }}';
+        createOrUpdateDonut(
+            'global',
+            parseLocalFloat('{{ global_totals.total_uah|default:"0" }}'),
+            breakdownStr
+        );
+        const globalBreakdown = {% if global_totals.currency_breakdown %}{{ global_totals.currency_breakdown|safe }}{% else %}{}{% endif %};
+        
+        // Pass breakdown as the 3rd argument (not a number)
+        createOrUpdateDonut(
+            'global',
+            parseLocalFloat('{{ global_totals.usd_uah|default:"0" }}'),
+            globalBreakdown
+        );
+    {% endif %}
+
+    // 2. Инициализация графиков для каждой кассы (если пользователь - не senior)
+    {% if not is_senior %}
+        {% for node in dashboard_balances %}
+            // For per-node initialization we only pass node_id and total_uah.
+            createOrUpdateDonut(
+                '{{ node.node_id }}',
+                parseLocalFloat('{{ node.usd_uah|default:"0" }}')
+            );
+        {% endfor %}
+    {% endif %}
+    
+});
+</script>
 <style>
 /* ✅ Добавляем эффект мигания для обновлённых значений */
 @keyframes flash {
@@ -572,7 +970,8 @@ function updateNodeStats(data){
 }
  
 .flash-update {
-    animation: flash 1s ease-in-out;
+    animation: flashUpdate 1.6s ease-out;
+    animation-iteration-count: 2, 1;
 }
 </style>
 {% endblock %}

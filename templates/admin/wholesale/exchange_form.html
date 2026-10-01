@@ -15,9 +15,10 @@
 
 <div class="grid grid-cols-1 gap-6 lg:mt-6 lg:py-4">
   <div class="form-rows dark:border-base-800 md:border py-4 aligned border-base-200 shadow-xs rounded">
-    <form method="post" class="flex flex-col gap-4">
+    <form id="exchange-form" method="post" class="flex flex-col gap-4">
         {% csrf_token %}
 
+        <input type="hidden" name="request_id" value="{{ request_id }}">
         <input type="hidden" name="order_type" value="{{ order_type }}">
         <div class="flex flex-col lg:flex-row gap-4 lg:gap-10 items-center">
             <div class="lg:w-1/4 w-full">
@@ -74,8 +75,36 @@
         <div class="fixed w-full left-0 bottom-0 lg:relative bg-white justify-between border-t border-base-200 flex flex-col lg:flex-row gap-2 p-3 py-2.5 mt-6 dark:bg-base-800 dark:border-base-700 2xl:border-t-0! 2xl:bg-transparent! 2xl:px-0">
             
             
-            <button type="submit"  class="bg-primary-600 block border border-transparent cursor-pointer font-medium px-4 py-3 rounded text-white">
-                Провести
+            <button id="exchange-submit" type="submit" class="bg-primary-600 block border border-transparent cursor-pointer font-medium px-4 py-3 rounded text-white">
+        <span id="submit-text">Провести</span>
+
+        <span
+            id="submit-spinner"
+            class="hidden"
+        >
+            <svg
+                class="animate-spin inline-block mr-2 h-5 w-5"
+                viewBox="0 0 24 24"
+                fill="none"
+            >
+                <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                ></circle>
+
+                <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                ></path>
+            </svg>
+
+            Проводим...
+        </span>
             </button>
             
             <a href="{% url 'admin:wholesale_wholesaleorder_changelist' %}"
@@ -89,8 +118,45 @@
 </div>
 </div>
 <div id="exchange-form-config" data-balance-url="{% url 'admin:wholesale_get_balance' %}" style="display:none;"></div>
-<script src="{% static 'admin/js/exchange_form.js' %}?0.6"></script>
+<div
+    id="exchange-loading"
+    class="hidden fixed inset-0 z-[9999] bg-white/80 dark:bg-base-900/80 backdrop-blur-xs flex items-center justify-center"
+>
+    <div class="rounded-xl shadow-2xl px-8 py-7 text-center">
+
+        <div class="flex justify-center mb-4">
+            <svg
+                class="animate-spin h-10 w-10 text-primary-600"
+                viewBox="0 0 24 24"
+                fill="none"
+            >
+                <circle
+                    class="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    stroke-width="4"
+                ></circle>
+
+                <path
+                    class="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"
+                ></path>
+            </svg>
+        </div>
+
+        <div class="text-xl font-semibold text-gray-900 dark:text-white">
+            Проводим операцию
+        </div>
+
+        <div class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            Пожалуйста, подождите...
+        </div>
+
+    </div>
+</div>
+<script src="{% static 'admin/js/exchange_form.js' %}?0.7"></script>
 
 {% endblock %}
-
-
